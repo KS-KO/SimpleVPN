@@ -17,7 +17,7 @@ public partial class MainWindow : Window
         // Window 창 이동 지원
         this.MouseDown += (s, e) =>
         {
-            if (e.ChangedButton == MouseButton.Left)
+            if (e.ChangedButton == MouseButton.Left && e.ButtonState == MouseButtonState.Pressed)
                 this.DragMove();
         };
 
@@ -35,6 +35,16 @@ public partial class MainWindow : Window
     private void CloseButton_Click(object sender, RoutedEventArgs e)
     {
         this.Hide(); // X 버튼 클릭 시 트레이 상주를 위해 숨김
+    }
+
+    private void OpenGuideButton_Click(object sender, RoutedEventArgs e)
+    {
+        var guideWindow = new GuideWindow
+        {
+            Owner = this
+        };
+
+        guideWindow.ShowDialog();
     }
 
     // 트레이 메뉴에서 종료 시 호출할 메서드
