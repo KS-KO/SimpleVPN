@@ -1,0 +1,31 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">
+  <metadata>
+    <id>H.NotifyIcon</id>
+    <version>2.4.1</version>
+    <authors>havendv</authors>
+    <license type="expression">MIT</license>
+    <licenseUrl>https://licenses.nuget.org/MIT</licenseUrl>
+    <icon>nuget_icon.png</icon>
+    <readme>README.md</readme>
+    <projectUrl>https://github.com/HavenDV/H.NotifyIcon</projectUrl>
+    <description>This package allows to create TrayIcon for any platform.</description>
+    <tags>tray-icon notify-icon interop console ecoqos eco qos quality-of-service efficiency-mode</tags>
+    <repository type="git" url="https://github.com/HavenDV/H.NotifyIcon" branch="refs/tags/v2.4.1" commit="bcaaabecf16566dd910a3798fe874014e251b28d" />
+    <dependencies>
+      <group targetFramework=".NETFramework4.6.2">
+        <dependency id="H.GeneratedIcons.System.Drawing" version="2.4.1" exclude="Build,Analyzers" />
+        <dependency id="System.Memory" version="4.6.0" exclude="Build,Analyzers" />
+        <dependency id="System.Runtime.CompilerServices.Unsafe" version="6.1.0" exclude="Build,Analyzers" />
+      </group>
+      <group targetFramework="net10.0">
+        <dependency id="H.GeneratedIcons.System.Drawing" version="2.4.1" exclude="Build,Analyzers" />
+      </group>
+      <group targetFramework=".NETStandard2.0">
+        <dependency id="H.GeneratedIcons.System.Drawing" version="2.4.1" exclude="Build,Analyzers" />
+        <dependency id="System.Memory" version="4.6.0" exclude="Build,Analyzers" />
+        <dependency id="System.Runtime.CompilerServices.Unsafe" version="6.1.0" exclude="Build,Analyzers" />
+      </group>
+    </dependencies>
+  </metadata>
+</package>

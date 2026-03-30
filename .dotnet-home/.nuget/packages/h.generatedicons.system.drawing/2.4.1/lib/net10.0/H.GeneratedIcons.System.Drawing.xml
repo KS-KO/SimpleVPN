@@ -1,0 +1,39 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>H.GeneratedIcons.System.Drawing</name>
+    </assembly>
+    <members>
+        <member name="T:H.NotifyIcon.BackgroundType">
+            <summary>
+            
+            </summary>
+        </member>
+        <member name="F:H.NotifyIcon.BackgroundType.Ellipse">
+            <summary>
+            
+            </summary>
+        </member>
+        <member name="F:H.NotifyIcon.BackgroundType.Rectangle">
+            <summary>
+            
+            </summary>
+        </member>
+        <member name="F:H.NotifyIcon.BackgroundType.RoundedRectangle">
+            <summary>
+            
+            </summary>
+        </member>
+        <member name="T:H.NotifyIcon.SystemDrawingIconGenerator">
+            <summary>
+            
+            </summary>
+        </member>
+        <member name="M:H.NotifyIcon.SystemDrawingIconGenerator.Generate(System.Drawing.Brush,System.Drawing.Brush,System.Drawing.Pen,H.NotifyIcon.BackgroundType,System.Single,System.Nullable{System.Drawing.RectangleF},System.String,System.Drawing.Font,System.Nullable{System.Drawing.RectangleF},System.Drawing.Image,System.Int32)">
+            <summary>
+            Generates <paramref name="size"/> x <paramref name="size"/> standard icon with selected parameters.
+            </summary>
+            <returns></returns>
+        </member>
+    </members>
+</doc>
