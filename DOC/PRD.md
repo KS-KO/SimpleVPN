@@ -56,7 +56,9 @@
 3. **Advanced (Phase 3)**: 다중 국가 자동 라우팅, 서버 로드 밸런싱 모드, 트래픽 최적화 알고리즘 도입, China Mode 엔진 번들링.
 
 ## 6. 현재 구현 상태 (2026-03-30 기준)
-- **빌드 안정화 완료**: WPF XAML 네임스페이스 오류, 트레이 아이콘 XAML 호환성 오류, 스타일 중복 지정 오류를 수정하여 `dotnet build`가 정상 통과함.
+- **빌드 안정화 및 Release 최적화 완료 (2026-03-30)**: `global.json`의 SDK 버전을 설치된 환경(9.0.309)에 맞춰 수정하고, Release 구성으로 클린 빌드 및 실행 검증을 완료함.
+- **방화벽 허용 자동화 적용 (2026-03-30)**: China Mode 상에서 `sing-box.exe` 엔진 실행 시, Windows 방화벽에 허용 규칙을 자동으로 등록하도록 보완함.
+- **새 서버 구축 UI 활성화 (2026-03-30)**: China Mode Setup 패널에 SSH 정보를 통한 새 Outline 서버 자동 구축 및 호스트네임/포트 설정 UI를 추가하여 기능을 가시화함.
 - **다중 연결 방식 지원 완료**: 사용자가 `VPN Mode`에서 `Windows 기본 VPN` 또는 `OpenVPN`을 선택할 수 있음.
 - **China Mode 무설치 실행 경로 추가**: 사용자가 `VPN Mode`에서 `China Mode`를 선택하고 Outline Access Key를 입력하면 앱 폴더의 portable sing-box 엔진을 직접 실행할 수 있음.
 - **Outline 자동 발급 흐름 추가**: 기존 Outline 서버의 `apiUrl`/`certSha256`로 Access Key를 자동 생성할 수 있음.
@@ -72,6 +74,7 @@
 - **중국 환경 대응 경로 추가**: 공개 VPN Gate 서버가 아닌 portable sing-box 엔진과 Outline Access Key를 사용하는 별도 연결 경로와 안내 메시지를 앱에 반영함.
 
 ## 7. 실제 검증 결과
+- **Release 빌드 및 실행 검증 완료**: `dotnet clean -c Release`, `dotnet build -c Release` 후 생성된 `SimpleVPNApp.exe`가 정상적으로 실행됨을 확인함.
 - **클린/빌드/실행 검증 완료**: `dotnet clean`, `dotnet build`, `dotnet run` 흐름이 정상 동작함.
 - **실제 VPN 연결 검증 완료**: 일본 VPN Gate 서버(`public-vpn-189`)를 대상으로 Windows 기본 VPN 연결이 성공함.
 - **OpenVPN 옵션 동작 검증 완료**: OpenVPN 방식 선택 시 OpenVPN GUI 기반 연결 경로가 앱 내 서비스로 복원되었고, 설치 여부에 따라 적절한 안내 또는 연결이 가능함.

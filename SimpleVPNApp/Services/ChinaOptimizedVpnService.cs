@@ -64,6 +64,9 @@ public sealed class ChinaOptimizedVpnService : IVpnService
                 await StopEngineAsync().ConfigureAwait(false);
             }
 
+            PublishStatus("방화벽 규칙 확인 중...");
+            EnsureFirewallRule(enginePath);
+
             PublishStatus("portable sing-box 엔진 시작 중...");
             _engineProcess = StartEngine(enginePath);
             await Task.Delay(1800).ConfigureAwait(false);
@@ -270,6 +273,45 @@ public sealed class ChinaOptimizedVpnService : IVpnService
         };
 
         return JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true });
+    }
+
+    private void EnsureFirewallRule(string enginePath)
+    {
+        try
+        {
+            var ruleName = "SimpleVPN - China Mode Engine (sing-box)";
+            
+            // 기존 규칙이 있는지 확인하고 제거 (경로가 변경되었을 수 있으므로)
+            RunNetsh($"advfirewall firewall delete rule name=\"{ruleName}\"");
+
+            // 인바운드/아웃바운드 규칙 추가
+            RunNetsh($"advfirewall firewall add rule name=\"{ruleName}\" dir=in action=allow program=\"{enginePath}\" enable=yes");
+            RunNetsh($"advfirewall firewall add rule name=\"{ruleName}\" dir=out action=allow program=\"{enginePath}\" enable=yes");
+            
+            PublishStatus("방화벽 허용 규칙이 적용되었습니다.");
+        }
+        catch (Exception ex)
+        {
+            PublishStatus($"방화벽 설정 경고 (권한 필요): {ex.Message}");
+        }
+    }
+
+    private static void RunNetsh(string arguments)
+    {
+        using var process = new Process
+        {
+            StartInfo = new ProcessStartInfo
+            {
+                FileName = "netsh",
+                Arguments = arguments,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
+            }
+        };
+        process.Start();
+        process.WaitForExit();
     }
 
     private Process StartEngine(string enginePath)

@@ -510,6 +510,7 @@
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
@@ -573,11 +574,11 @@
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="10"/>
-                            <ColumnDefinition Width="100"/>
+                            <ColumnDefinition Width="80"/>
                             <ColumnDefinition Width="10"/>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="10"/>
-                            <ColumnDefinition Width="120"/>
+                            <ColumnDefinition Width="100"/>
                         </Grid.ColumnDefinitions>
                         <TextBox Grid.Column="0"
                                  Text="{Binding OutlineSshHost, UpdateSourceTrigger=PropertyChanged}"
@@ -587,7 +588,7 @@
                                  BorderThickness="1"
                                  Padding="12,10"
                                  CaretBrush="White"
-                                 ToolTip="SSH 접속 호스트"/>
+                                 ToolTip="SSH Host (e.g. 1.2.3.4)"/>
                         <TextBox Grid.Column="2"
                                  Text="{Binding OutlineSshUser, UpdateSourceTrigger=PropertyChanged}"
                                  Background="#0F1220"
@@ -596,7 +597,7 @@
                                  BorderThickness="1"
                                  Padding="12,10"
                                  CaretBrush="White"
-                                 ToolTip="SSH 사용자"/>
+                                 ToolTip="SSH User (e.g. root)"/>
                         <TextBox Grid.Column="4"
                                  Text="{Binding OutlineSshKeyPath, UpdateSourceTrigger=PropertyChanged}"
                                  Background="#0F1220"
@@ -605,18 +606,56 @@
                                  BorderThickness="1"
                                  Padding="12,10"
                                  CaretBrush="White"
-                                 ToolTip="SSH 개인키 경로"/>
+                                 ToolTip="SSH Private Key Path"/>
                         <Button Grid.Column="6" Command="{Binding LoadExistingServerAccessInfoCommand}" Height="42">
                             <Button.Style>
                                 <Style TargetType="Button" BasedOn="{StaticResource ModernButtonStyle}">
                                     <Setter Property="Background" Value="#253B63"/>
                                 </Style>
                             </Button.Style>
-                            <TextBlock Text="자동 읽기" FontSize="13" FontWeight="SemiBold"/>
+                            <TextBlock Text="정보 읽기" FontSize="13" FontWeight="SemiBold"/>
                         </Button>
                     </Grid>
 
-                    <Border Grid.Row="4" Background="#0F1220" BorderBrush="#303446" BorderThickness="1" CornerRadius="16" Padding="16" Margin="0,14,0,0">
+                    <Grid Grid.Row="4" Margin="0,10,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="10"/>
+                            <ColumnDefinition Width="80"/>
+                            <ColumnDefinition Width="10"/>
+                            <ColumnDefinition Width="150"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox Grid.Column="0"
+                                 Text="{Binding OutlineProvisionHostname, UpdateSourceTrigger=PropertyChanged}"
+                                 Background="#0F1220"
+                                 Foreground="White"
+                                 BorderBrush="#38405C"
+                                 BorderThickness="1"
+                                 Padding="12,10"
+                                 CaretBrush="White"
+                                 ToolTip="연결용 Hostname (비워두면 IP 사용)"/>
+                        <TextBox Grid.Column="2"
+                                 Text="{Binding OutlineProvisionPort, UpdateSourceTrigger=PropertyChanged}"
+                                 Background="#0F1220"
+                                 Foreground="White"
+                                 BorderBrush="#38405C"
+                                 BorderThickness="1"
+                                 Padding="12,10"
+                                 CaretBrush="White"
+                                 ToolTip="관리 API 포트 (기본 443)"/>
+                        <Button Grid.Column="4" Command="{Binding BootstrapOutlineServerCommand}" Height="42" Padding="12,0">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource ModernButtonStyle}">
+                                    <Setter Property="Background" Value="#4F46E5"/>
+                                </Style>
+                            </Button.Style>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="새 서버 자동 구축" FontSize="13" FontWeight="Bold"/>
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+
+                    <Border Grid.Row="5" Background="#0F1220" BorderBrush="#303446" BorderThickness="1" CornerRadius="16" Padding="16" Margin="0,14,0,0">
                         <StackPanel>
                             <TextBlock Text="China Mode Summary" Foreground="White" FontSize="15" FontWeight="SemiBold"/>
                             <TextBlock Text="{Binding OutlineProvisionStatus}" Foreground="#C7CBFF" FontSize="12" Margin="0,8,0,0" TextWrapping="Wrap"/>
