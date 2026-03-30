@@ -10,12 +10,16 @@ using SimpleVPNApp.Models;
 namespace SimpleVPNApp.Services;
 
 /// <summary>
-/// 중국 환경용 우회 모드에서 설치형 Outline Client 대신 휴대용 sing-box 엔진을 직접 실행합니다.
+/// China Mode에서 portable sing-box 엔진을 직접 실행합니다.
 /// </summary>
 public sealed class ChinaOptimizedVpnService : IVpnService
 {
+    private const string OutlineProfileType = "outline";
+    private const string VlessRealityProfileType = "vless-reality";
+    private const string TrojanProfileType = "trojan";
     private const string EngineFolderName = "sing-box";
-    private readonly string _accessKeyOrEndpoint;
+
+    private readonly string _connectionPayload;
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly string _runtimeDirectory;
     private readonly string _configPath;
@@ -23,9 +27,9 @@ public sealed class ChinaOptimizedVpnService : IVpnService
     private Process? _engineProcess;
     private bool _disposed;
 
-    public ChinaOptimizedVpnService(string accessKeyOrEndpoint)
+    public ChinaOptimizedVpnService(string connectionPayload)
     {
-        _accessKeyOrEndpoint = accessKeyOrEndpoint?.Trim() ?? string.Empty;
+        _connectionPayload = connectionPayload?.Trim() ?? string.Empty;
 
         _runtimeDirectory = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -38,6 +42,13 @@ public sealed class ChinaOptimizedVpnService : IVpnService
     public bool IsConnected { get; private set; }
     public event Action<string>? StatusChanged;
 
+    public static void ValidateConnectionPayload(string connectionPayload)
+    {
+        var validator = new ChinaOptimizedVpnService(connectionPayload);
+        var profile = validator.ParseProfile(connectionPayload);
+        _ = validator.BuildConfig(profile);
+    }
+
     public async Task ConnectAsync(VpnServer server)
     {
         await _gate.WaitAsync().ConfigureAwait(false);
@@ -45,18 +56,18 @@ public sealed class ChinaOptimizedVpnService : IVpnService
         {
             ThrowIfDisposed();
 
-            if (string.IsNullOrWhiteSpace(_accessKeyOrEndpoint))
+            if (string.IsNullOrWhiteSpace(_connectionPayload))
             {
-                throw new InvalidOperationException("China Mode를 사용하려면 Outline Access Key를 입력해 주세요.");
+                throw new InvalidOperationException("China Mode를 사용하려면 프로필 설정을 입력해 주세요.");
             }
 
             PublishStatus("China Mode 설정 확인 중...");
 
-            var accessKey = ParseAccessKey(_accessKeyOrEndpoint);
+            var profile = ParseProfile(_connectionPayload);
             var enginePath = ResolveEnginePath();
 
             Directory.CreateDirectory(_runtimeDirectory);
-            await File.WriteAllTextAsync(_configPath, BuildConfig(accessKey), Encoding.UTF8).ConfigureAwait(false);
+            await File.WriteAllTextAsync(_configPath, BuildConfig(profile), Encoding.UTF8).ConfigureAwait(false);
 
             if (_engineProcess is { HasExited: false })
             {
@@ -122,6 +133,46 @@ public sealed class ChinaOptimizedVpnService : IVpnService
         _disposed = true;
     }
 
+    private ChinaModeConnectionProfile ParseProfile(string input)
+    {
+        if (input.StartsWith("ss://", StringComparison.OrdinalIgnoreCase) ||
+            input.StartsWith("ssconf://", StringComparison.OrdinalIgnoreCase))
+        {
+            return new ChinaModeConnectionProfile
+            {
+                ProfileType = OutlineProfileType,
+                AccessKey = input
+            };
+        }
+
+        try
+        {
+            var profile = JsonSerializer.Deserialize<ChinaModeConnectionProfile>(input);
+            if (profile == null || string.IsNullOrWhiteSpace(profile.ProfileType))
+            {
+                throw new InvalidOperationException("China Mode 설정을 읽지 못했습니다.");
+            }
+
+            return new ChinaModeConnectionProfile
+            {
+                ProfileType = profile.ProfileType.Trim(),
+                AccessKey = profile.AccessKey?.Trim() ?? string.Empty,
+                Server = profile.Server?.Trim() ?? string.Empty,
+                Port = profile.Port,
+                Uuid = profile.Uuid?.Trim() ?? string.Empty,
+                PublicKey = profile.PublicKey?.Trim() ?? string.Empty,
+                ShortId = profile.ShortId?.Trim() ?? string.Empty,
+                ServerName = profile.ServerName?.Trim() ?? string.Empty,
+                Fingerprint = string.IsNullOrWhiteSpace(profile.Fingerprint) ? "chrome" : profile.Fingerprint.Trim(),
+                Password = profile.Password?.Trim() ?? string.Empty
+            };
+        }
+        catch (JsonException)
+        {
+            throw new InvalidOperationException("China Mode 설정 형식이 올바르지 않습니다.");
+        }
+    }
+
     private AccessKeyConfig ParseAccessKey(string input)
     {
         if (input.StartsWith("ssconf://", StringComparison.OrdinalIgnoreCase))
@@ -131,7 +182,7 @@ public sealed class ChinaOptimizedVpnService : IVpnService
 
         if (!input.StartsWith("ss://", StringComparison.OrdinalIgnoreCase))
         {
-            throw new InvalidOperationException("China Mode는 `ss://` 형식의 Outline Access Key가 필요합니다.");
+            throw new InvalidOperationException("Outline 프로필은 `ss://` 형식의 Access Key가 필요합니다.");
         }
 
         var withoutScheme = input["ss://".Length..];
@@ -227,9 +278,22 @@ public sealed class ChinaOptimizedVpnService : IVpnService
             "portable China Mode 엔진을 찾지 못했습니다. `SimpleVPNApp\\Runtime\\sing-box\\sing-box.exe`와 필요한 DLL을 배치해 주세요.");
     }
 
-    private string BuildConfig(AccessKeyConfig accessKey)
+    private string BuildConfig(ChinaModeConnectionProfile profile)
     {
-        var config = new
+        var config = profile.ProfileType switch
+        {
+            OutlineProfileType => BuildOutlineConfig(ParseAccessKey(profile.AccessKey)),
+            VlessRealityProfileType => BuildVlessRealityConfig(profile),
+            TrojanProfileType => BuildTrojanConfig(profile),
+            _ => throw new InvalidOperationException($"지원하지 않는 China Profile입니다: {profile.ProfileType}")
+        };
+
+        return JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true });
+    }
+
+    private object BuildOutlineConfig(AccessKeyConfig accessKey)
+    {
+        return new
         {
             log = new
             {
@@ -271,24 +335,181 @@ public sealed class ChinaOptimizedVpnService : IVpnService
                 final = "ss-out"
             }
         };
+    }
 
-        return JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true });
+    private object BuildVlessRealityConfig(ChinaModeConnectionProfile profile)
+    {
+        if (string.IsNullOrWhiteSpace(profile.Server))
+        {
+            throw new InvalidOperationException("VLESS REALITY 서버 주소를 입력해 주세요.");
+        }
+
+        if (profile.Port <= 0 || profile.Port > 65535)
+        {
+            throw new InvalidOperationException("VLESS REALITY 포트가 올바르지 않습니다.");
+        }
+
+        if (string.IsNullOrWhiteSpace(profile.Uuid))
+        {
+            throw new InvalidOperationException("VLESS REALITY UUID를 입력해 주세요.");
+        }
+
+        if (string.IsNullOrWhiteSpace(profile.PublicKey))
+        {
+            throw new InvalidOperationException("VLESS REALITY Public Key를 입력해 주세요.");
+        }
+
+        if (string.IsNullOrWhiteSpace(profile.ServerName))
+        {
+            throw new InvalidOperationException("VLESS REALITY Server Name(SNI)을 입력해 주세요.");
+        }
+
+        return new
+        {
+            log = new
+            {
+                disabled = false,
+                level = "info",
+                output = _logPath
+            },
+            inbounds = new object[]
+            {
+                new
+                {
+                    type = "mixed",
+                    tag = "mixed-in",
+                    listen = "127.0.0.1",
+                    listen_port = 2080,
+                    set_system_proxy = true
+                }
+            },
+            outbounds = new object[]
+            {
+                new
+                {
+                    type = "vless",
+                    tag = "vless-reality-out",
+                    server = profile.Server,
+                    server_port = profile.Port,
+                    uuid = profile.Uuid,
+                    packet_encoding = "xudp",
+                    tls = new
+                    {
+                        enabled = true,
+                        server_name = profile.ServerName,
+                        utls = new
+                        {
+                            enabled = true,
+                            fingerprint = profile.Fingerprint
+                        },
+                        reality = new
+                        {
+                            enabled = true,
+                            public_key = profile.PublicKey,
+                            short_id = profile.ShortId
+                        }
+                    }
+                },
+                new
+                {
+                    type = "direct",
+                    tag = "direct"
+                }
+            },
+            route = new
+            {
+                auto_detect_interface = true,
+                final = "vless-reality-out"
+            }
+        };
+    }
+
+    private object BuildTrojanConfig(ChinaModeConnectionProfile profile)
+    {
+        if (string.IsNullOrWhiteSpace(profile.Server))
+        {
+            throw new InvalidOperationException("Trojan 서버 주소를 입력해 주세요.");
+        }
+
+        if (profile.Port <= 0 || profile.Port > 65535)
+        {
+            throw new InvalidOperationException("Trojan 포트가 올바르지 않습니다.");
+        }
+
+        if (string.IsNullOrWhiteSpace(profile.Password))
+        {
+            throw new InvalidOperationException("Trojan 비밀번호를 입력해 주세요.");
+        }
+
+        if (string.IsNullOrWhiteSpace(profile.ServerName))
+        {
+            throw new InvalidOperationException("Trojan Server Name(SNI)을 입력해 주세요.");
+        }
+
+        return new
+        {
+            log = new
+            {
+                disabled = false,
+                level = "info",
+                output = _logPath
+            },
+            inbounds = new object[]
+            {
+                new
+                {
+                    type = "mixed",
+                    tag = "mixed-in",
+                    listen = "127.0.0.1",
+                    listen_port = 2080,
+                    set_system_proxy = true
+                }
+            },
+            outbounds = new object[]
+            {
+                new
+                {
+                    type = "trojan",
+                    tag = "trojan-out",
+                    server = profile.Server,
+                    server_port = profile.Port,
+                    password = profile.Password,
+                    tls = new
+                    {
+                        enabled = true,
+                        server_name = profile.ServerName,
+                        utls = new
+                        {
+                            enabled = true,
+                            fingerprint = profile.Fingerprint
+                        }
+                    }
+                },
+                new
+                {
+                    type = "direct",
+                    tag = "direct"
+                }
+            },
+            route = new
+            {
+                auto_detect_interface = true,
+                final = "trojan-out"
+            }
+        };
     }
 
     private void EnsureFirewallRule(string enginePath)
     {
         try
         {
-            var ruleName = "SimpleVPN - China Mode Engine (sing-box)";
-            
-            // 기존 규칙이 있는지 확인하고 제거 (경로가 변경되었을 수 있으므로)
-            RunNetsh($"advfirewall firewall delete rule name=\"{ruleName}\"");
+            const string ruleName = "SimpleVPN - China Mode Engine (sing-box)";
 
-            // 인바운드/아웃바운드 규칙 추가
+            RunNetsh($"advfirewall firewall delete rule name=\"{ruleName}\"");
             RunNetsh($"advfirewall firewall add rule name=\"{ruleName}\" dir=in action=allow program=\"{enginePath}\" enable=yes");
             RunNetsh($"advfirewall firewall add rule name=\"{ruleName}\" dir=out action=allow program=\"{enginePath}\" enable=yes");
-            
-            PublishStatus("방화벽 허용 규칙이 적용되었습니다.");
+
+            PublishStatus("방화벽 허용 규칙을 적용했습니다.");
         }
         catch (Exception ex)
         {

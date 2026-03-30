@@ -22,8 +22,9 @@
 |---|---|---|---|
 | **기본** | 서버 리스트 조회 | VPN Gate(학술 프로젝트) 등의 공용 API를 통해 무료 서버 목록을 CSV 형태로 실시간 조회함. | API 기반 연동 |
 | | 터널링 연결/해제 | 선택된 서버의 정보를 바탕으로 안전한 터널링을 구성하고 연결 상태를 실시간 반영함. | 최우선 과제 |
-| | China Mode | 중국 환경에서는 공개 VPN Gate 서버 대신 portable sing-box 엔진과 Outline Access Key를 사용하는 전용 모드를 제공함. | 무설치 엔진 연동 |
+| | China Mode | 중국 환경에서는 공개 VPN Gate 서버 대신 portable sing-box 엔진으로 `Outline`, `VLESS REALITY`, `Trojan TLS` 프로필을 직접 사용하는 전용 모드를 제공함. | 무설치 엔진 연동 |
 | | Outline 키 자동 생성 | 기존 Outline 서버 관리 API를 통해 Access Key를 생성하거나, SSH로 새 Outline 서버를 설치한 뒤 Access Key를 자동 발급함. | 중국 대응 자동화 |
+| | China 프로필 관리 | China Mode 설정을 이름 있는 여러 슬롯으로 저장하고, JSON 가져오기/내보내기로 다른 PC와 공유할 수 있음. | 로컬 설정/이식성 |
 | **보안** | Kill Switch | 의도치 않은 VPN 연결 해제 시 모든 인터넷 트래픽을 차단함. | 방화벽 제어 |
 | | 암호화 통신 | AES-256 또는 ChaCha20 등 고성능 암호화 스위트를 적용함. | |
 | **편의** | 자동 서버 선택 | 지연 시간이 가장 짧은 서버를 자동으로 추천하거나 연결함. | |
@@ -60,9 +61,10 @@
 - **방화벽 허용 자동화 적용 (2026-03-30)**: China Mode 상에서 `sing-box.exe` 엔진 실행 시, Windows 방화벽에 허용 규칙을 자동으로 등록하도록 보완함.
 - **새 서버 구축 UI 활성화 (2026-03-30)**: China Mode Setup 패널에 SSH 정보를 통한 새 Outline 서버 자동 구축 및 호스트네임/포트 설정 UI를 추가하여 기능을 가시화함.
 - **다중 연결 방식 지원 완료**: 사용자가 `VPN Mode`에서 `Windows 기본 VPN` 또는 `OpenVPN`을 선택할 수 있음.
-- **China Mode 무설치 실행 경로 추가**: 사용자가 `VPN Mode`에서 `China Mode`를 선택하고 Outline Access Key를 입력하면 앱 폴더의 portable sing-box 엔진을 직접 실행할 수 있음.
+- **China Mode 다중 프로필 실행 경로 추가**: 사용자가 `VPN Mode`에서 `China Mode`를 선택하고 `Outline`, `VLESS REALITY`, `Trojan TLS` 중 하나를 골라 앱 폴더의 portable sing-box 엔진으로 직접 연결할 수 있음.
 - **Outline 자동 발급 흐름 추가**: 기존 Outline 서버의 `apiUrl`/`certSha256`로 Access Key를 자동 생성할 수 있음.
 - **Outline 서버 자동 부트스트랩 흐름 추가**: SSH 접속 정보가 있으면 공식 설치 스크립트로 새 Outline 서버를 만들고 Access Key까지 연속 생성할 수 있음.
+- **China 프로필 슬롯/JSON 기능 추가**: China Mode 설정을 여러 저장 슬롯으로 관리하고, JSON 파일로 가져오기/내보내기 할 수 있음.
 - **별도 프로그램 없는 VPN 연결 완료**: Windows 기본 VPN 클라이언트(L2TP/IPsec)를 사용하여 외부 프로그램 설치 없이 실제 터널 연결/해제를 수행함.
 - **OpenVPN 옵션 지원 완료**: OpenVPN GUI가 설치된 경우 VPN Gate의 OpenVPN 프로필을 사용해 실제 터널 연결/해제를 수행할 수 있음.
 - **동적 VPN 프로필 구성 완료**: 선택한 VPN Gate 서버의 IP 또는 OpenVPN 설정 데이터를 기준으로 앱 내부에서 필요한 연결 구성을 생성하고 연결/해제까지 자동 처리함.
@@ -71,15 +73,16 @@
 - **단일 인스턴스 실행 적용**: 프로그램은 한 번만 실행되며, 중복 실행 시 기존 창을 활성화하고 새 인스턴스는 종료함.
 - **연결 상태 표시 강화**: 메인 화면에 `Recent VPN Status` 패널과 `VPN Mode` 선택 UI를 추가하여 선택한 방식의 연결 진행 상태와 최근 상태 메시지를 표시함.
 - **OpenVPN 종료 정책 적용 완료**: 프로그램이 직접 시작한 OpenVPN만 앱 종료 시 함께 종료하며, 사용자가 수동으로 실행한 OpenVPN은 종료하지 않음.
-- **중국 환경 대응 경로 추가**: 공개 VPN Gate 서버가 아닌 portable sing-box 엔진과 Outline Access Key를 사용하는 별도 연결 경로와 안내 메시지를 앱에 반영함.
+- **중국 환경 대응 경로 추가**: 공개 VPN Gate 서버가 아닌 portable sing-box 엔진 기반 `Outline`, `VLESS REALITY`, `Trojan TLS` 연결 경로와 안내 메시지를 앱에 반영함.
 
 ## 7. 실제 검증 결과
 - **Release 빌드 및 실행 검증 완료**: `dotnet clean -c Release`, `dotnet build -c Release` 후 생성된 `SimpleVPNApp.exe`가 정상적으로 실행됨을 확인함.
 - **클린/빌드/실행 검증 완료**: `dotnet clean`, `dotnet build`, `dotnet run` 흐름이 정상 동작함.
 - **실제 VPN 연결 검증 완료**: 일본 VPN Gate 서버(`public-vpn-189`)를 대상으로 Windows 기본 VPN 연결이 성공함.
 - **OpenVPN 옵션 동작 검증 완료**: OpenVPN 방식 선택 시 OpenVPN GUI 기반 연결 경로가 앱 내 서비스로 복원되었고, 설치 여부에 따라 적절한 안내 또는 연결이 가능함.
-- **China Mode 입력 검증 완료**: `ss://` 형식의 Outline Access Key를 검사하고 잘못된 입력에 대해 안내 메시지를 표시함.
+- **China Mode 입력 검증 완료**: `Outline(ss://)`, `VLESS REALITY`, `Trojan TLS` 프로필별 필수 입력을 검사하고 잘못된 값에 대해 안내 메시지를 표시함.
 - **기존 서버 키 생성 경로 구현**: Outline Server Management API의 `/access-keys` 호출로 새 Access Key를 생성해 China Mode 입력칸에 자동 반영함.
+- **China 프로필 저장/이식 검증 완료**: China Mode 설정을 다중 슬롯으로 저장하고, JSON 파일로 내보내거나 다시 가져와 복원할 수 있음.
 - **새 서버 생성 경로 구현**: SSH로 공식 `install_server.sh`를 실행하고 `/opt/outline/access.txt`에서 `apiUrl`/`certSha256`를 읽어 새 Access Key를 생성함.
 - **공인 IP 변경 검증 완료**: 연결 전 공인 IP `121.137.29.163`, 연결 후 공인 IP `219.100.37.244`, 연결 해제 후 공인 IP `121.137.29.163`으로 복귀함.
 - **서버 API 응답 검증 완료**: VPN Gate API 응답 코드 `200` 확인 및 서버 목록 실파싱 확인.
@@ -90,9 +93,13 @@
 - **Windows 기본 VPN 방식**: `Add-VpnConnection`으로 L2TP/IPsec 프로필을 생성하고 `rasdial.exe`로 연결/해제를 수행함.
 - **Windows 기본 VPN 인증 정보**: 현재 VPN Gate 공용 접속 규칙에 맞춰 L2TP 사전 공유 키 `vpn`, 사용자 이름 `vpn`, 비밀번호 `vpn`을 사용함.
 - **OpenVPN 방식**: OpenVPN GUI가 설치된 경우 VPN Gate의 Base64 OpenVPN 설정을 앱이 프로필로 생성하여 GUI 명령으로 연결/해제를 수행함.
-- **China Mode 방식**: 공개 VPN Gate 서버 대신 사용자가 직접 보유한 Outline Access Key를 입력받고, 앱 폴더의 portable sing-box 엔진이 시스템 프록시 모드로 직접 연결하도록 구성함.
+- **China Mode 방식**: 공개 VPN Gate 서버 대신 사용자가 직접 보유한 `Outline`, `VLESS REALITY`, `Trojan TLS` 설정을 입력받고, 앱 폴더의 portable sing-box 엔진이 시스템 프록시 모드로 직접 연결하도록 구성함.
 - **기존 Outline 서버 자동화 방식**: 사용자가 보유한 `apiUrl`와 `certSha256`를 바탕으로 관리 API에 `POST /access-keys`를 호출해 새 키를 생성함.
 - **새 Outline 서버 자동화 방식**: SSH로 공식 설치 스크립트를 실행한 뒤 설치 결과에서 `apiUrl`와 `certSha256`를 추출하고 곧바로 첫 Access Key를 생성함.
+- **VLESS REALITY 방식**: `Server`, `Port`, `UUID`, `Public Key`, `Server Name(SNI)`, `Short ID`, `Fingerprint`를 바탕으로 sing-box outbound 설정을 생성함.
+- **Trojan TLS 방식**: `Server`, `Port`, `Password`, `Server Name(SNI)`, `Fingerprint`를 바탕으로 sing-box outbound 설정을 생성함.
+- **China 프로필 저장 방식**: 선택한 China 프로필 유형과 입력값을 이름 있는 저장 슬롯으로 관리하고 `%LocalAppData%\\SimpleVPN\\settings.json`에 저장함.
+- **China 프로필 이식 방식**: 현재 China Mode 설정 전체를 JSON 파일로 내보내고, 다른 환경에서 다시 가져와 적용할 수 있음.
 - **OpenVPN 종료 정책**: 앱이 직접 시작한 OpenVPN GUI 및 앱이 직접 만든 연결만 종료 대상으로 관리하며, 수동으로 실행 중인 OpenVPN 프로세스는 유지함.
 - **종료 처리**: 앱 종료 시 ViewModel과 VPN 서비스가 `Dispose`되어 가능한 경우 활성 VPN 연결을 먼저 해제함.
 
