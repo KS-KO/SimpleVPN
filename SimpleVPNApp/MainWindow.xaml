@@ -3,12 +3,11 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:SimpleVPNApp"
         xmlns:vm="clr-namespace:SimpleVPNApp.ViewModels"
         xmlns:models="clr-namespace:SimpleVPNApp.Models"
         xmlns:tb="clr-namespace:H.NotifyIcon;assembly=H.NotifyIcon.Wpf"
         mc:Ignorable="d"
-        Title="SimpleVPN" Height="700" Width="400"
+        Title="SimpleVPN" Height="760" Width="1080" MinHeight="720" MinWidth="980"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         Icon="/Assets/logo.png"
         WindowStartupLocation="CenterScreen">
@@ -18,348 +17,360 @@
     </Window.DataContext>
 
     <Grid>
-        <!-- Tray Icon Integration (H.NotifyIcon.Wpf) -->
         <tb:TaskbarIcon x:Name="MyNotifyIcon"
                         ToolTipText="{Binding TrayToolTipText}"
                         DoubleClickCommand="{Binding ShowWindowCommand}">
             <tb:TaskbarIcon.IconSource>
-                <tb:GeneratedIconSource
-                    Text="S"
-                    Background="{StaticResource PrimaryBrush}"
-                    Foreground="White"
-                    FontSize="42"
-                    FontWeight="Bold" />
+                <tb:GeneratedIconSource Text="S" Background="{StaticResource PrimaryBrush}" Foreground="White" FontSize="42" FontWeight="Bold" />
             </tb:TaskbarIcon.IconSource>
-            <!-- Tray Context Menu -->
             <tb:TaskbarIcon.ContextMenu>
                 <ContextMenu Style="{StaticResource TrayContextMenuStyle}">
-                    <MenuItem Header="Open SimpleVPN"
-                              Command="{Binding ShowWindowCommand}"
-                              Style="{StaticResource TrayMenuItemStyle}"/>
+                    <MenuItem Header="SimpleVPN 열기" Command="{Binding ShowWindowCommand}" Style="{StaticResource TrayMenuItemStyle}"/>
                     <Separator Style="{StaticResource TraySeparatorStyle}"/>
-                    <MenuItem Header="Disconnect VPN"
-                              Command="{Binding ToggleConnectionCommand}"
-                              IsEnabled="{Binding IsConnected}"
-                              Style="{StaticResource TrayMenuItemStyle}"/>
-                    <MenuItem Header="Exit Application"
-                              Command="{Binding ExitAppCommand}"
-                              Style="{StaticResource TrayDangerMenuItemStyle}"/>
+                    <MenuItem Header="VPN 연결 해제" Command="{Binding ToggleConnectionCommand}" IsEnabled="{Binding IsConnected}" Style="{StaticResource TrayMenuItemStyle}"/>
+                    <MenuItem Header="프로그램 종료" Command="{Binding ExitAppCommand}" Style="{StaticResource TrayDangerMenuItemStyle}"/>
                 </ContextMenu>
             </tb:TaskbarIcon.ContextMenu>
         </tb:TaskbarIcon>
 
-        <!-- Background Layer -->
-        <Border CornerRadius="30" Background="#14151B" BorderBrush="#3B3D4F" BorderThickness="1.5">
+        <Border Margin="8" CornerRadius="34" BorderThickness="1.5" BorderBrush="#303446">
+            <Border.Background>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                    <GradientStop Color="#12131A" Offset="0"/>
+                    <GradientStop Color="#171A24" Offset="0.45"/>
+                    <GradientStop Color="#101117" Offset="1"/>
+                </LinearGradientBrush>
+            </Border.Background>
             <Border.Effect>
-                <DropShadowEffect BlurRadius="30" Direction="-90" RenderingBias="Quality" ShadowDepth="5" Opacity="0.5"/>
+                <DropShadowEffect BlurRadius="36" Direction="-90" RenderingBias="Quality" ShadowDepth="8" Opacity="0.45"/>
             </Border.Effect>
         </Border>
 
-        <!-- Main Content Inner -->
-        <DockPanel Margin="25">
-            <!-- Header & Exit Buttons -->
-            <Grid DockPanel.Dock="Top" Margin="0,0,0,25">
-                <StackPanel HorizontalAlignment="Center">
-                    <TextBlock Text="SimpleVPN" FontSize="26" Foreground="White" FontWeight="Bold" FontFamily="Segoe UI Semibold"/>
-                    <TextBlock Text="{Binding StatusMessage}" FontSize="13" Foreground="#898AA8" HorizontalAlignment="Center" Margin="0,5,0,0">
-                        <TextBlock.Style>
-                            <Style TargetType="TextBlock">
+        <Grid Margin="28">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <Grid Grid.Row="0" Margin="0,0,0,22">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Orientation="Horizontal">
+                    <Border Background="#232739" CornerRadius="999" Padding="12,6" Margin="0,0,12,0">
+                        <TextBlock Text="{Binding SelectedConnectionOption.DisplayName}" Foreground="#C7CBFF" FontSize="12" FontWeight="SemiBold"/>
+                    </Border>
+                    <Border Padding="12,6" CornerRadius="999">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Background" Value="#232739"/>
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding IsConnected}" Value="True">
-                                        <Setter Property="Foreground" Value="#4ADE80"/>
+                                        <Setter Property="Background" Value="#173328"/>
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>
-                        </TextBlock.Style>
-                    </TextBlock>
+                        </Border.Style>
+                        <TextBlock Text="{Binding StatusMessage}" FontSize="12" FontWeight="SemiBold">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="#9EA4C7"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsConnected}" Value="True">
+                                            <Setter Property="Foreground" Value="#8DF0AF"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Border>
                 </StackPanel>
 
-                <!-- Top Right Controls -->
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
-                    <!-- Minimize Button logic (custom) -->
-                    <Button Width="32" Height="32" Click="CloseButton_Click" Background="Transparent" BorderThickness="0" ToolTip="트레이로 최소화">
-                        <TextBlock Text="✕" Foreground="#4A4B5F" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </Button>
-                </StackPanel>
+                <Button Grid.Column="1" Width="40" Height="40" Click="CloseButton_Click" Background="#1B1E2A" BorderBrush="#303446" BorderThickness="1" ToolTip="트레이로 최소화">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="12">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                        </ControlTemplate>
+                    </Button.Template>
+                    <TextBlock Text="✕" Foreground="#7B819B" FontSize="16" FontWeight="Bold"/>
+                </Button>
             </Grid>
 
-            <!-- Visual Indicator (Logo Image) -->
-            <Grid DockPanel.Dock="Top" Height="140" VerticalAlignment="Top" Margin="0,10">
-                <Ellipse Stroke="#2E303E" StrokeThickness="6" Width="110" Height="110">
-                    <Ellipse.Style>
-                        <Style TargetType="Ellipse">
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsConnected}" Value="True">
-                                    <Setter Property="Stroke" Value="#4ADE80"/>
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Ellipse.Style>
-                </Ellipse>
-                
-                <!-- Sunflower Logo Image -->
-                <Image Source="/Assets/logo.png" Width="80" Height="80" RenderOptions.BitmapScalingMode="HighQuality">
-                    <Image.Style>
-                        <Style TargetType="Image">
-                            <Setter Property="Opacity" Value="0.8"/>
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsConnected}" Value="True">
-                                    <Setter Property="Opacity" Value="1.0"/>
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Image.Style>
-                    <Image.Effect>
-                        <DropShadowEffect BlurRadius="10" Direction="-90" ShadowDepth="0" Opacity="0.3"/>
-                    </Image.Effect>
-                </Image>
-            </Grid>
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="2.15*"/>
+                    <ColumnDefinition Width="24"/>
+                    <ColumnDefinition Width="1.35*"/>
+                </Grid.ColumnDefinitions>
 
-            <Border DockPanel.Dock="Top"
-                    Margin="0,6,0,10"
-                    Padding="14,12"
-                    Background="#1B1D27"
-                    BorderBrush="#2D3140"
-                    BorderThickness="1"
-                    CornerRadius="14">
-                <StackPanel>
-                    <TextBlock Text="Recent VPN Status"
-                               Foreground="#9EA4C7"
-                               FontSize="11"
-                               FontWeight="SemiBold"
-                               Margin="0,0,0,6"/>
-                    <TextBlock Text="{Binding ConnectionDetails}"
-                               Foreground="White"
-                               FontSize="12"
-                               TextWrapping="Wrap"/>
-                </StackPanel>
-            </Border>
+                <Grid Grid.Column="0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="22"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
 
-            <Border DockPanel.Dock="Top"
-                    Margin="0,0,0,10"
-                    Padding="14,12"
-                    Background="#1B1D27"
-                    BorderBrush="#2D3140"
-                    BorderThickness="1"
-                    CornerRadius="14">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <StackPanel Grid.Column="0">
-                        <TextBlock Text="Public IP"
-                                   Foreground="#9EA4C7"
-                                   FontSize="11"
-                                   FontWeight="SemiBold"
-                                   Margin="0,0,0,6"/>
-                        <TextBlock Text="{Binding PublicIp}"
-                                   Foreground="White"
-                                   FontSize="14"
-                                   FontWeight="Bold"/>
-                    </StackPanel>
-                    <StackPanel Grid.Column="1">
-                        <TextBlock Text="Server IP"
-                                   Foreground="#9EA4C7"
-                                   FontSize="11"
-                                   FontWeight="SemiBold"
-                                   Margin="0,0,0,6"/>
-                        <TextBlock Text="{Binding ConnectedServerIp}"
-                                   Foreground="White"
-                                   FontSize="14"
-                                   FontWeight="Bold"/>
-                    </StackPanel>
+                    <Border Grid.Row="0" Padding="28" CornerRadius="28">
+                        <Border.Background>
+                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                <GradientStop Color="#1A1D2A" Offset="0"/>
+                                <GradientStop Color="#1F2440" Offset="1"/>
+                            </LinearGradientBrush>
+                        </Border.Background>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="1.15*"/>
+                                <ColumnDefinition Width="0.85*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel>
+                                <TextBlock Text="SimpleVPN" Foreground="White" FontSize="38" FontWeight="Bold" FontFamily="Bahnschrift SemiBold"/>
+                                <TextBlock Text="Modern private routing, cleaned up for a faster desktop flow." Foreground="#A0A7C7" FontSize="15" Margin="0,10,0,0"/>
+                                <TextBlock Text="{Binding ConnectionDetails}" Foreground="#D9DCF1" FontSize="14" TextWrapping="Wrap" Margin="0,18,0,0"/>
+
+                                <Grid Margin="0,28,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="14"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Background="#141824" BorderBrush="#343A53" BorderThickness="1" CornerRadius="18" Padding="18,16">
+                                        <StackPanel>
+                                            <TextBlock Text="Public IP" Foreground="#8F96B8" FontSize="11" FontWeight="SemiBold"/>
+                                            <TextBlock Text="{Binding PublicIp}" Foreground="White" FontSize="22" FontWeight="Bold" Margin="0,10,0,0"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <Border Grid.Column="2" Background="#141824" BorderBrush="#343A53" BorderThickness="1" CornerRadius="18" Padding="18,16">
+                                        <StackPanel>
+                                            <TextBlock Text="Server IP" Foreground="#8F96B8" FontSize="11" FontWeight="SemiBold"/>
+                                            <TextBlock Text="{Binding ConnectedServerIp}" Foreground="White" FontSize="22" FontWeight="Bold" Margin="0,10,0,0"/>
+                                        </StackPanel>
+                                    </Border>
+                                </Grid>
+
+                                <Button Height="68" Command="{Binding ToggleConnectionCommand}" Margin="0,30,0,0">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource ModernButtonStyle}">
+                                            <Setter Property="Background" Value="#5865F2"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsConnected}" Value="True">
+                                                    <Setter Property="Background" Value="#F04747"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                    <TextBlock Text="{Binding ButtonContent}" FontSize="20" FontWeight="Bold"/>
+                                </Button>
+                            </StackPanel>
+
+                            <Grid Grid.Column="1">
+                                <Grid Width="260" Height="260" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                    <Ellipse Fill="#1D2235" Width="250" Height="250"/>
+                                    <Ellipse StrokeThickness="10" Width="210" Height="210">
+                                        <Ellipse.Style>
+                                            <Style TargetType="Ellipse">
+                                                <Setter Property="Stroke" Value="#3A4160"/>
+                                                <Setter Property="Opacity" Value="0.75"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsConnected}" Value="True">
+                                                        <Setter Property="Stroke" Value="#4ADE80"/>
+                                                        <Setter Property="Opacity" Value="1"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Ellipse.Style>
+                                    </Ellipse>
+                                    <Border Width="132" Height="132" CornerRadius="28" Background="#11141D" BorderBrush="#C9CEE9" BorderThickness="6">
+                                        <Border.Effect>
+                                            <DropShadowEffect BlurRadius="24" ShadowDepth="0" Color="#5865F2" Opacity="0.25"/>
+                                        </Border.Effect>
+                                        <Image Source="/Assets/logo.png" Width="92" Height="92" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                    </Border>
+                                </Grid>
+                            </Grid>
+                        </Grid>
+                    </Border>
+
+                    <Grid Grid.Row="2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="1.1*"/>
+                            <ColumnDefinition Width="20"/>
+                            <ColumnDefinition Width="0.9*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <Border Grid.Column="0" Padding="18" Background="#181B27" BorderBrush="#2D3144" BorderThickness="1" CornerRadius="22">
+                            <StackPanel>
+                                <TextBlock Text="VPN Mode" Foreground="#9EA4C7" FontSize="12" FontWeight="SemiBold"/>
+                                <TextBlock Text="Choose the routing engine that fits your setup." Foreground="#7F87A9" FontSize="13" Margin="0,6,0,0"/>
+                                <ComboBox ItemsSource="{Binding ConnectionOptions}" SelectedItem="{Binding SelectedConnectionOption}" Background="#24283B" Foreground="White" BorderThickness="0" Padding="10,8" DisplayMemberPath="DisplayName" Margin="0,16,0,0">
+                                    <ComboBox.Resources>
+                                        <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="#24283B"/>
+                                        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#5865F2"/>
+                                        <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="#24283B"/>
+                                        <SolidColorBrush x:Key="{x:Static SystemColors.ControlTextBrushKey}" Color="White"/>
+                                        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="White"/>
+                                        <Style TargetType="ToggleButton">
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="ToggleButton">
+                                                        <Border Background="Transparent">
+                                                            <Path Width="10" Height="6" HorizontalAlignment="Center" VerticalAlignment="Center" Data="M 0 0 L 5 6 L 10 0 Z" Fill="#9EA4C7"/>
+                                                        </Border>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Style>
+                                        <Style TargetType="ComboBox">
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="ComboBox">
+                                                        <Grid>
+                                                            <Border x:Name="RootBorder" Background="{TemplateBinding Background}" BorderBrush="#3B3D4F" BorderThickness="1" CornerRadius="12">
+                                                                <Grid>
+                                                                    <Grid.ColumnDefinitions>
+                                                                        <ColumnDefinition Width="*"/>
+                                                                        <ColumnDefinition Width="34"/>
+                                                                    </Grid.ColumnDefinitions>
+                                                                    <ContentPresenter Grid.Column="0" Margin="12,8,8,8" VerticalAlignment="Center" HorizontalAlignment="Left" Content="{TemplateBinding SelectionBoxItem}" ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}" RecognizesAccessKey="True" TextElement.Foreground="White"/>
+                                                                    <ToggleButton Grid.Column="1" Focusable="False" IsChecked="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}" ClickMode="Press"/>
+                                                                </Grid>
+                                                            </Border>
+                                                            <Popup Name="Popup" Placement="Bottom" IsOpen="{TemplateBinding IsDropDownOpen}" AllowsTransparency="True" Focusable="False" PopupAnimation="Slide">
+                                                                <Border Margin="0,6,0,0" MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}" Background="#24283B" BorderBrush="#3B3D4F" BorderThickness="1" CornerRadius="12">
+                                                                    <ScrollViewer Margin="4" SnapsToDevicePixels="True">
+                                                                        <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Contained"/>
+                                                                    </ScrollViewer>
+                                                                </Border>
+                                                            </Popup>
+                                                        </Grid>
+                                                        <ControlTemplate.Triggers>
+                                                            <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                                                <Setter TargetName="RootBorder" Property="BorderBrush" Value="#5865F2"/>
+                                                            </Trigger>
+                                                        </ControlTemplate.Triggers>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Style>
+                                        <Style TargetType="ComboBoxItem">
+                                            <Setter Property="Background" Value="#24283B"/>
+                                            <Setter Property="Foreground" Value="White"/>
+                                            <Setter Property="Padding" Value="10,8"/>
+                                            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="ComboBoxItem">
+                                                        <Border x:Name="ItemBorder" Background="{TemplateBinding Background}" CornerRadius="8" Padding="{TemplateBinding Padding}">
+                                                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center"/>
+                                                        </Border>
+                                                        <ControlTemplate.Triggers>
+                                                            <Trigger Property="IsHighlighted" Value="True">
+                                                                <Setter TargetName="ItemBorder" Property="Background" Value="#2E334D"/>
+                                                            </Trigger>
+                                                            <Trigger Property="IsSelected" Value="True">
+                                                                <Setter TargetName="ItemBorder" Property="Background" Value="#5865F2"/>
+                                                            </Trigger>
+                                                        </ControlTemplate.Triggers>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Style>
+                                    </ComboBox.Resources>
+                                </ComboBox>
+                                <TextBlock Text="{Binding SelectedConnectionOption.Description}" Foreground="#A1A8C8" FontSize="12" Margin="0,12,0,0" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Grid.Column="2" Padding="18" Background="#181B27" BorderBrush="#2D3144" BorderThickness="1" CornerRadius="22">
+                            <StackPanel>
+                                <TextBlock Text="Recent VPN Status" Foreground="#9EA4C7" FontSize="12" FontWeight="SemiBold"/>
+                                <TextBlock Text="{Binding ConnectionDetails}" Foreground="White" FontSize="14" TextWrapping="Wrap" Margin="0,10,0,0"/>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
                 </Grid>
-            </Border>
 
-            <Border DockPanel.Dock="Top"
-                    Margin="0,0,0,10"
-                    Padding="14,12"
-                    Background="#1B1D27"
-                    BorderBrush="#2D3140"
-                    BorderThickness="1"
-                    CornerRadius="14">
-                <StackPanel>
-                    <TextBlock Text="VPN Mode"
-                               Foreground="#9EA4C7"
-                               FontSize="11"
-                               FontWeight="SemiBold"
-                               Margin="0,0,0,6"/>
-                    <ComboBox ItemsSource="{Binding ConnectionOptions}"
-                              SelectedItem="{Binding SelectedConnectionOption}"
-                              Background="#24283B"
-                              Foreground="White"
-                              BorderThickness="0"
-                              Padding="10,8"
-                              DisplayMemberPath="DisplayName">
-                        <ComboBox.Resources>
-                            <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="#24283B"/>
-                            <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#5865F2"/>
-                            <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="#24283B"/>
-                            <SolidColorBrush x:Key="{x:Static SystemColors.ControlTextBrushKey}" Color="White"/>
-                            <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="White"/>
-                            <Style TargetType="ToggleButton">
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="ToggleButton">
-                                            <Border Background="Transparent">
-                                                <Path Width="10"
-                                                      Height="6"
-                                                      HorizontalAlignment="Center"
-                                                      VerticalAlignment="Center"
-                                                      Data="M 0 0 L 5 6 L 10 0 Z"
-                                                      Fill="#9EA4C7"/>
-                                            </Border>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
-                            </Style>
-                            <Style TargetType="ComboBox">
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="ComboBox">
-                                            <Grid>
-                                                <Border x:Name="RootBorder"
-                                                        Background="{TemplateBinding Background}"
-                                                        BorderBrush="#3B3D4F"
-                                                        BorderThickness="1"
-                                                        CornerRadius="10">
-                                                    <Grid>
-                                                        <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="*"/>
-                                                            <ColumnDefinition Width="34"/>
-                                                        </Grid.ColumnDefinitions>
-                                                        <ContentPresenter Grid.Column="0"
-                                                                          Margin="12,8,8,8"
-                                                                          VerticalAlignment="Center"
-                                                                          HorizontalAlignment="Left"
-                                                                          Content="{TemplateBinding SelectionBoxItem}"
-                                                                          ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}"
-                                                                          RecognizesAccessKey="True"
-                                                                          TextElement.Foreground="White"/>
-                                                        <ToggleButton Grid.Column="1"
-                                                                      Focusable="False"
-                                                                      IsChecked="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
-                                                                      ClickMode="Press"/>
-                                                    </Grid>
-                                                </Border>
-                                                <Popup Name="Popup"
-                                                       Placement="Bottom"
-                                                       IsOpen="{TemplateBinding IsDropDownOpen}"
-                                                       AllowsTransparency="True"
-                                                       Focusable="False"
-                                                       PopupAnimation="Slide">
-                                                    <Border Margin="0,6,0,0"
-                                                            MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
-                                                            Background="#24283B"
-                                                            BorderBrush="#3B3D4F"
-                                                            BorderThickness="1"
-                                                            CornerRadius="10">
-                                                        <ScrollViewer Margin="4"
-                                                                      SnapsToDevicePixels="True">
-                                                            <StackPanel IsItemsHost="True"
-                                                                        KeyboardNavigation.DirectionalNavigation="Contained"/>
-                                                        </ScrollViewer>
-                                                    </Border>
-                                                </Popup>
-                                            </Grid>
-                                            <ControlTemplate.Triggers>
-                                                <Trigger Property="IsKeyboardFocusWithin" Value="True">
-                                                    <Setter TargetName="RootBorder" Property="BorderBrush" Value="#5865F2"/>
-                                                </Trigger>
-                                            </ControlTemplate.Triggers>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
-                            </Style>
-                            <Style TargetType="ComboBoxItem">
-                                <Setter Property="Background" Value="#24283B"/>
-                                <Setter Property="Foreground" Value="White"/>
-                                <Setter Property="Padding" Value="10,8"/>
-                                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="ComboBoxItem">
-                                            <Border x:Name="ItemBorder"
-                                                    Background="{TemplateBinding Background}"
-                                                    CornerRadius="8"
-                                                    Padding="{TemplateBinding Padding}">
-                                                <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                                                  VerticalAlignment="Center"/>
-                                            </Border>
-                                            <ControlTemplate.Triggers>
-                                                <Trigger Property="IsHighlighted" Value="True">
-                                                    <Setter TargetName="ItemBorder" Property="Background" Value="#2E334D"/>
-                                                </Trigger>
-                                                <Trigger Property="IsSelected" Value="True">
-                                                    <Setter TargetName="ItemBorder" Property="Background" Value="#5865F2"/>
-                                                </Trigger>
-                                            </ControlTemplate.Triggers>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
-                            </Style>
-                        </ComboBox.Resources>
-                    </ComboBox>
-                    <TextBlock Text="{Binding SelectedConnectionOption.Description}"
-                               Foreground="#898AA8"
-                               FontSize="11"
-                               Margin="0,8,0,0"
-                               TextWrapping="Wrap"/>
-                </StackPanel>
-            </Border>
+                <Border Grid.Column="2" Padding="22" Background="#181B27" BorderBrush="#2D3144" BorderThickness="1" CornerRadius="28">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
 
-            <!-- Server Selection -->
-            <Grid Margin="0,10">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
-                <DockPanel Grid.Row="0" Margin="0,0,0,10">
-                    <TextBlock Text="Available Free Servers" Foreground="White" FontSize="14" FontWeight="SemiBold"/>
-                    <Button Command="{Binding FetchServersCommand}" Background="Transparent" BorderThickness="0" HorizontalAlignment="Right">
-                        <TextBlock Text="Refresh List" Foreground="{StaticResource PrimaryBrush}" FontSize="12" TextDecorations="Underline"/>
-                    </Button>
-                </DockPanel>
-                <ListBox Grid.Row="1" ItemsSource="{Binding Servers}" SelectedItem="{Binding SelectedServer}" Style="{StaticResource ServerListBoxStyle}">
-                    <ListBox.ItemTemplate>
-                        <DataTemplate DataType="{x:Type models:VpnServer}">
-                            <DockPanel LastChildFill="True">
-                                <Border Background="{StaticResource PrimaryBrush}" CornerRadius="6" VerticalAlignment="Center" Width="30" Height="30" Margin="0,0,12,0" Opacity="0.8">
-                                    <TextBlock Text="{Binding CountryShort}" Foreground="White" FontSize="10" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                </Border>
-                                <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="{Binding HostName}" Foreground="White" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
-                                    <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
-                                        <TextBlock Text="{Binding Ping}" Foreground="#4ADE80" FontSize="11"/><TextBlock Text=" ms" Foreground="#4A4B5F" FontSize="11" Margin="2,0,10,0"/>
-                                        <TextBlock Text="{Binding Speed}" Foreground="#898AA8" FontSize="11" /><TextBlock Text=" Mbps" Foreground="#4A4B5F" FontSize="11" Margin="2,0,0,0"/>
-                                    </StackPanel>
-                                </StackPanel>
-                                <TextBlock Text="📶" Foreground="#3B3D4F" FontSize="12" HorizontalAlignment="Right" VerticalAlignment="Center" DockPanel.Dock="Right"/>
-                            </DockPanel>
-                        </DataTemplate>
-                    </ListBox.ItemTemplate>
-                </ListBox>
+                        <Grid Grid.Row="0" Margin="0,0,0,16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="Server Library" Foreground="White" FontSize="22" FontWeight="Bold" FontFamily="Bahnschrift SemiBold"/>
+                                <TextBlock Text="Select a live endpoint and switch locations in one click." Foreground="#8590B4" FontSize="13" Margin="0,4,0,0"/>
+                            </StackPanel>
+                            <Button Grid.Column="1"
+                                    Command="{Binding FetchServersCommand}"
+                                    Background="#24283B"
+                                    BorderBrush="#38405C"
+                                    BorderThickness="1"
+                                    Padding="14,8"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Top">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border Background="{TemplateBinding Background}"
+                                                BorderBrush="{TemplateBinding BorderBrush}"
+                                                BorderThickness="{TemplateBinding BorderThickness}"
+                                                CornerRadius="12"
+                                                Padding="{TemplateBinding Padding}">
+                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Border>
+                                    </ControlTemplate>
+                                </Button.Template>
+                                <TextBlock Text="서버 목록 갱신" Foreground="#D8DCFF" FontSize="12" FontWeight="SemiBold"/>
+                            </Button>
+                        </Grid>
+
+                        <ListBox Grid.Row="1" ItemsSource="{Binding Servers}" SelectedItem="{Binding SelectedServer}" Style="{StaticResource ServerListBoxStyle}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate DataType="{x:Type models:VpnServer}">
+                                    <Grid Margin="0,2">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="12"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Border Width="42" Height="42" CornerRadius="14" Background="{StaticResource PrimaryBrush}" VerticalAlignment="Center" Opacity="0.92">
+                                            <TextBlock Text="{Binding CountryShort}" Foreground="White" FontSize="11" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Border>
+                                        <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding HostName}" Foreground="White" FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                            <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                                <TextBlock Text="{Binding CountryLong}" Foreground="#8E95B7" FontSize="12"/>
+                                                <TextBlock Text="  •  " Foreground="#59607D" FontSize="12"/>
+                                                <TextBlock Text="{Binding Ping}" Foreground="#7DE7A0" FontSize="12" FontWeight="SemiBold"/>
+                                                <TextBlock Text=" ms" Foreground="#8E95B7" FontSize="12"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="3" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Speed}" Foreground="#C7CBFF" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Right"/>
+                                            <TextBlock Text="Mbps" Foreground="#6E7698" FontSize="11" HorizontalAlignment="Right"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+
+                        <Grid Grid.Row="2" Margin="0,18,0,0" Visibility="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <ProgressBar IsIndeterminate="True" Height="3" Background="#0F1220" BorderThickness="0" Foreground="{StaticResource PrimaryBrush}"/>
+                        </Grid>
+                    </Grid>
+                </Border>
             </Grid>
-
-            <!-- Loading ProgressBar -->
-            <Grid DockPanel.Dock="Top" Visibility="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}}">
-                <ProgressBar IsIndeterminate="True" Height="2" Background="Transparent" BorderThickness="0" Foreground="{StaticResource PrimaryBrush}"/>
-            </Grid>
-
-            <!-- Bottom Button -->
-            <Button DockPanel.Dock="Bottom" Height="64" Command="{Binding ToggleConnectionCommand}" Margin="0,15,0,0">
-                <Button.Style>
-                    <Style TargetType="Button" BasedOn="{StaticResource ModernButtonStyle}">
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding IsConnected}" Value="True">
-                                <Setter Property="Background" Value="{StaticResource DangerBrush}"/>
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </Button.Style>
-                <TextBlock Text="{Binding ButtonContent}" FontSize="18" FontWeight="Bold"/>
-            </Button>
-        </DockPanel>
+        </Grid>
     </Grid>
 </Window>
