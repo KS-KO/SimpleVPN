@@ -15,6 +15,7 @@ namespace SimpleVPNApp.ViewModels;
 public partial class MainViewModel : ObservableObject, IDisposable
 {
     private readonly VpnGateService _vpnGateService = new VpnGateService();
+    private readonly NetworkInfoService _networkInfoService = new NetworkInfoService();
     private IVpnService _vpnService;
 
     [ObservableProperty]
@@ -44,6 +45,15 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private VpnConnectionOption? _selectedConnectionOption;
 
+    [ObservableProperty]
+    private string _publicIp = "조회 중...";
+
+    [ObservableProperty]
+    private string _connectedServerIp = "-";
+
+    [ObservableProperty]
+    private string _trayToolTipText = "SimpleVPN - 보안 연동 대기 중";
+
     public MainViewModel()
     {
         _vpnService = new WindowsBuiltInVpnService();
@@ -57,6 +67,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         SelectedConnectionOption = ConnectionOptions[0];
         // 최신 버전의 .NET 9을 고려하여 비동기 데이터 초기 로드
         _ = FetchServersAsync();
+        _ = RefreshIpInfoAsync();
     }
 
     /// <summary>
@@ -157,7 +168,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
                     StatusMessage = "보호되지 않음";
                     ButtonContent = "VPN 연결하기";
                     ConnectionDetails = "VPN 연결이 해제되었습니다.";
+                    ConnectedServerIp = "-";
                 }).ConfigureAwait(false);
+                await RefreshIpInfoAsync().ConfigureAwait(false);
             }
             else
             {
@@ -177,7 +190,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
                     StatusMessage = $"VPN 연결됨 ({selectedServer.CountryShort})";
                     ButtonContent = "연결 해제";
                     ConnectionDetails = $"{selectedServer.HostName} 터널 연결이 활성화되었습니다.";
+                    ConnectedServerIp = selectedServer.IP;
                 }).ConfigureAwait(false);
+                await RefreshIpInfoAsync().ConfigureAwait(false);
             }
         }
         catch (Exception ex)
@@ -188,7 +203,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 ButtonContent = "VPN 연결하기";
                 StatusMessage = $"오류: {ex.Message}";
                 ConnectionDetails = "아래 최근 로그를 확인해 주세요.";
+                ConnectedServerIp = "-";
             }).ConfigureAwait(false);
+            await RefreshIpInfoAsync().ConfigureAwait(false);
         }
         finally
         {
@@ -236,11 +253,35 @@ public partial class MainViewModel : ObservableObject, IDisposable
             IsConnected = false;
             ButtonContent = "VPN 연결하기";
             ConnectionDetails = $"{value.DisplayName} 모드가 선택되었습니다. {value.Description}";
+            ConnectedServerIp = "-";
         });
+        _ = RefreshIpInfoAsync();
     }
 
     private static IVpnService CreateVpnService(VpnConnectionOption? option) =>
         option?.Key == "openvpn"
             ? new OpenVpnService()
             : new WindowsBuiltInVpnService();
+
+    private async Task RefreshIpInfoAsync()
+    {
+        string publicIp;
+
+        try
+        {
+            publicIp = await _networkInfoService.GetPublicIpAsync().ConfigureAwait(false) ?? "확인 불가";
+        }
+        catch
+        {
+            publicIp = "확인 불가";
+        }
+
+        await RunOnUiAsync(() =>
+        {
+            PublicIp = publicIp;
+            TrayToolTipText = IsConnected
+                ? $"SimpleVPN - 연결됨{Environment.NewLine}Public IP: {PublicIp}{Environment.NewLine}Server IP: {ConnectedServerIp}"
+                : $"SimpleVPN - 연결 대기{Environment.NewLine}Public IP: {PublicIp}";
+        }).ConfigureAwait(false);
+    }
 }
