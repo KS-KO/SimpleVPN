@@ -13,6 +13,7 @@ namespace SimpleVPNApp.Services;
 public sealed class LocalSettingsService
 {
     private readonly string _settingsPath;
+    private readonly CredentialService _credentialService = new();
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true
@@ -37,7 +38,9 @@ public sealed class LocalSettingsService
 
             var json = await File.ReadAllTextAsync(_settingsPath).ConfigureAwait(false);
             var envelope = JsonSerializer.Deserialize<AppSettingsEnvelope>(json);
-            return envelope?.ChinaMode ?? new ChinaModeSettings();
+            var settings = envelope?.ChinaMode ?? new ChinaModeSettings();
+            UnprotectSettings("main", settings);
+            return settings;
         }
         catch
         {
@@ -59,11 +62,16 @@ public sealed class LocalSettingsService
 
             if (settings?.ChinaModeLibrary?.Profiles.Count > 0)
             {
+                foreach (var profile in settings.ChinaModeLibrary.Profiles)
+                {
+                    UnprotectSettings(profile.Id, profile.Settings);
+                }
                 return settings.ChinaModeLibrary;
             }
 
             if (settings?.ChinaMode != null)
             {
+                UnprotectSettings("main", settings.ChinaMode);
                 return new ChinaModeProfileLibrary
                 {
                     SelectedSavedProfileId = "default",
@@ -116,11 +124,24 @@ public sealed class LocalSettingsService
         var directory = Path.GetDirectoryName(_settingsPath);
         if (!string.IsNullOrWhiteSpace(directory)) Directory.CreateDirectory(directory);
 
+        // 원본 객체 손상 방지를 위해 클론 후 보호된 상태로 직렬화
+        var protectedChinaMode = CloneAndProtect("main", chinaSettings);
+        var protectedLibrary = new ChinaModeProfileLibrary
+        {
+            SelectedSavedProfileId = library.SelectedSavedProfileId,
+            Profiles = library.Profiles.Select(p => new ChinaModeSavedProfile
+            {
+                Id = p.Id,
+                Name = p.Name,
+                Settings = CloneAndProtect(p.Id, p.Settings)
+            }).ToList()
+        };
+
         var payload = new AppSettingsEnvelope
         {
             IsKillSwitchEnabled = isKillSwitchEnabled,
-            ChinaMode = chinaSettings,
-            ChinaModeLibrary = library,
+            ChinaMode = protectedChinaMode,
+            ChinaModeLibrary = protectedLibrary,
             CustomServers = customServers
         };
 
@@ -128,40 +149,85 @@ public sealed class LocalSettingsService
         await File.WriteAllTextAsync(_settingsPath, json).ConfigureAwait(false);
     }
 
-    public async Task SaveChinaModeSettingsAsync(ChinaModeSettings settings)
+    private ChinaModeSettings CloneAndProtect(string profileId, ChinaModeSettings original)
     {
-        var directory = Path.GetDirectoryName(_settingsPath);
-        if (!string.IsNullOrWhiteSpace(directory))
+        var cloned = new ChinaModeSettings
         {
-            Directory.CreateDirectory(directory);
-        }
-
-        var payload = new AppSettingsEnvelope
-        {
-            ChinaMode = settings
+            SelectedProfileKey = original.SelectedProfileKey,
+            OutlineAccessKey = original.OutlineAccessKey,
+            OutlineApiUrl = original.OutlineApiUrl,
+            OutlineCertSha256 = original.OutlineCertSha256,
+            OutlineSshHost = original.OutlineSshHost,
+            OutlineSshUser = original.OutlineSshUser,
+            OutlineSshKeyPath = original.OutlineSshKeyPath,
+            OutlineProvisionHostname = original.OutlineProvisionHostname,
+            OutlineProvisionPort = original.OutlineProvisionPort,
+            VlessRealityServer = original.VlessRealityServer,
+            VlessRealityPort = original.VlessRealityPort,
+            VlessRealityUuid = original.VlessRealityUuid,
+            VlessRealityPublicKey = original.VlessRealityPublicKey,
+            VlessRealityShortId = original.VlessRealityShortId,
+            VlessRealityServerName = original.VlessRealityServerName,
+            VlessRealityFingerprint = original.VlessRealityFingerprint,
+            TrojanServer = original.TrojanServer,
+            TrojanPort = original.TrojanPort,
+            TrojanPassword = original.TrojanPassword,
+            TrojanServerName = original.TrojanServerName,
+            TrojanFingerprint = original.TrojanFingerprint
         };
 
-        var json = JsonSerializer.Serialize(payload, JsonOptions);
+        if (!string.IsNullOrEmpty(cloned.OutlineAccessKey) && cloned.OutlineAccessKey != "[PROTECTED]")
+        {
+            _credentialService.SaveCredential($"{profileId}:OutlineAccessKey", cloned.OutlineAccessKey);
+            cloned.OutlineAccessKey = "[PROTECTED]";
+        }
 
-        await File.WriteAllTextAsync(_settingsPath, json).ConfigureAwait(false);
+        if (!string.IsNullOrEmpty(cloned.VlessRealityUuid) && cloned.VlessRealityUuid != "[PROTECTED]")
+        {
+            _credentialService.SaveCredential($"{profileId}:VlessRealityUuid", cloned.VlessRealityUuid);
+            cloned.VlessRealityUuid = "[PROTECTED]";
+        }
+
+        if (!string.IsNullOrEmpty(cloned.TrojanPassword) && cloned.TrojanPassword != "[PROTECTED]")
+        {
+            _credentialService.SaveCredential($"{profileId}:TrojanPassword", cloned.TrojanPassword);
+            cloned.TrojanPassword = "[PROTECTED]";
+        }
+
+        return cloned;
     }
 
-    public async Task SaveChinaModeProfileLibraryAsync(ChinaModeProfileLibrary library)
+    private void UnprotectSettings(string profileId, ChinaModeSettings settings)
     {
-        var directory = Path.GetDirectoryName(_settingsPath);
-        if (!string.IsNullOrWhiteSpace(directory))
+        if (settings.OutlineAccessKey == "[PROTECTED]")
         {
-            Directory.CreateDirectory(directory);
+            var outlineKey = _credentialService.ReadCredential($"{profileId}:OutlineAccessKey");
+            if (string.IsNullOrEmpty(outlineKey) && profileId != "main")
+            {
+                outlineKey = _credentialService.ReadCredential("main:OutlineAccessKey");
+            }
+            if (!string.IsNullOrEmpty(outlineKey)) settings.OutlineAccessKey = outlineKey;
         }
 
-        var payload = new AppSettingsEnvelope
+        if (settings.VlessRealityUuid == "[PROTECTED]")
         {
-            ChinaMode = library.Profiles.FirstOrDefault(profile => profile.Id == library.SelectedSavedProfileId)?.Settings ?? new ChinaModeSettings(),
-            ChinaModeLibrary = library
-        };
+            var vlessUuid = _credentialService.ReadCredential($"{profileId}:VlessRealityUuid");
+            if (string.IsNullOrEmpty(vlessUuid) && profileId != "main")
+            {
+                vlessUuid = _credentialService.ReadCredential("main:VlessRealityUuid");
+            }
+            if (!string.IsNullOrEmpty(vlessUuid)) settings.VlessRealityUuid = vlessUuid;
+        }
 
-        var json = JsonSerializer.Serialize(payload, JsonOptions);
-        await File.WriteAllTextAsync(_settingsPath, json).ConfigureAwait(false);
+        if (settings.TrojanPassword == "[PROTECTED]")
+        {
+            var trojanPassword = _credentialService.ReadCredential($"{profileId}:TrojanPassword");
+            if (string.IsNullOrEmpty(trojanPassword) && profileId != "main")
+            {
+                trojanPassword = _credentialService.ReadCredential("main:TrojanPassword");
+            }
+            if (!string.IsNullOrEmpty(trojanPassword)) settings.TrojanPassword = trojanPassword;
+        }
     }
 
     public async Task ExportChinaModeSettingsAsync(string path, ChinaModeSettings settings)

@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -78,7 +79,8 @@ public sealed class ChinaOptimizedVpnService : IVpnService
             }
 
             Directory.CreateDirectory(_runtimeDirectory);
-            await File.WriteAllTextAsync(_configPath, BuildConfig(profile), Encoding.UTF8).ConfigureAwait(false);
+            var utf8WithoutBom = new System.Text.UTF8Encoding(false);
+            await File.WriteAllTextAsync(_configPath, BuildConfig(profile), utf8WithoutBom).ConfigureAwait(false);
 
             if (_engineProcess is { HasExited: false })
             {
@@ -89,15 +91,21 @@ public sealed class ChinaOptimizedVpnService : IVpnService
             PublishStatus("방화벽 규칙 확인 중...");
             EnsureFirewallRule(enginePath);
 
+            if (!File.Exists(enginePath)) throw new FileNotFoundException("엔진 파일이 작업 디렉토리에 없습니다.");
+
             PublishStatus("portable sing-box 엔진 시작 중...");
-            _engineProcess = StartEngine(enginePath);
-            await Task.Delay(1800).ConfigureAwait(false);
+            var streamLog = new StringBuilder();
+            _engineProcess = StartEngineWithCapture(enginePath, streamLog);
+            
+            await Task.Delay(2000).ConfigureAwait(false);
 
             if (_engineProcess.HasExited)
             {
                 var exitCode = _engineProcess.ExitCode;
-                var tail = await TryReadLogTailAsync().ConfigureAwait(false);
-                throw new InvalidOperationException($"China Mode 엔진이 시작 직후 종료되었습니다. ExitCode={exitCode}. {tail}".Trim());
+                var fileLog = await TryReadLogTailAsync().ConfigureAwait(false);
+                var finalLog = !string.IsNullOrWhiteSpace(fileLog) ? fileLog : streamLog.ToString().Trim();
+                
+                throw new InvalidOperationException($"China Mode 엔진이 즉시 종료되었습니다. ExitCode={exitCode}. {finalLog}".Trim());
             }
 
             IsConnected = true;
@@ -131,26 +139,13 @@ public sealed class ChinaOptimizedVpnService : IVpnService
 
     public VpnStatistics GetStatistics()
     {
-        // China Mode는 시스템 프록시를 사용하므로 인터페이스 기반 측정이 직접적으로는 어려움
-        // 프로세스 리소스 사용량을 기반으로 하거나, 이번 주기에는 시간을 우선적으로 제공함
         return Helpers.StatisticsHelper.GetProcessStatistics(_engineProcess, _startTime, _lastReceived, _lastSent);
     }
 
     public void Dispose()
     {
-        if (_disposed)
-        {
-            return;
-        }
-
-        try
-        {
-            DisconnectAsync().GetAwaiter().GetResult();
-        }
-        catch
-        {
-        }
-
+        if (_disposed) return;
+        try { DisconnectAsync().GetAwaiter().GetResult(); } catch { }
         _gate.Dispose();
         _disposed = true;
     }
@@ -209,21 +204,16 @@ public sealed class ChinaOptimizedVpnService : IVpnService
 
         var withoutScheme = input["ss://".Length..];
         var fragmentIndex = withoutScheme.IndexOf('#');
-        if (fragmentIndex >= 0)
-        {
-            withoutScheme = withoutScheme[..fragmentIndex];
-        }
+        if (fragmentIndex >= 0) withoutScheme = withoutScheme[..fragmentIndex];
 
         var queryIndex = withoutScheme.IndexOf('?');
-        if (queryIndex >= 0)
-        {
-            withoutScheme = withoutScheme[..queryIndex];
-        }
+        if (queryIndex >= 0) withoutScheme = withoutScheme[..queryIndex];
 
         var atIndex = withoutScheme.LastIndexOf('@');
         if (atIndex < 0)
         {
-            throw new InvalidOperationException("Outline Access Key 형식이 올바르지 않습니다.");
+            var decoded = DecodeUserInfo(withoutScheme);
+            return ParseSshFullString(decoded);
         }
 
         var userInfoPart = withoutScheme[..atIndex];
@@ -233,20 +223,31 @@ public sealed class ChinaOptimizedVpnService : IVpnService
         var separator = credentials.IndexOf(':');
         if (separator <= 0 || separator == credentials.Length - 1)
         {
-            throw new InvalidOperationException("Outline Access Key의 인증 정보가 올바르지 않습니다.");
+            if (userInfoPart.Contains(':'))
+            {
+                credentials = userInfoPart;
+                separator = credentials.IndexOf(':');
+            }
+            if (separator <= 0 || separator == credentials.Length - 1)
+                throw new InvalidOperationException("Outline Access Key의 인증 정보가 올바르지 않습니다.");
         }
 
         var colonIndex = hostPart.LastIndexOf(':');
         if (colonIndex <= 0 || colonIndex == hostPart.Length - 1)
         {
-            throw new InvalidOperationException("Outline Access Key의 서버 주소가 올바르지 않습니다.");
+            throw new InvalidOperationException($"Outline Access Key의 서버 주소 또는 포트 정보가 올바르지 않습니다. (Host: {hostPart})");
         }
 
-        var server = hostPart[..colonIndex];
-        var portText = hostPart[(colonIndex + 1)..];
+        var server = hostPart[..colonIndex].Trim('[', ']', ' ');
+        var portText = hostPart[(colonIndex + 1)..].Trim();
+
         if (!int.TryParse(portText, out var port))
         {
-            throw new InvalidOperationException("Outline Access Key의 포트 정보가 올바르지 않습니다.");
+            var onlyDigits = new string(portText.TakeWhile(char.IsDigit).ToArray());
+            if (string.IsNullOrEmpty(onlyDigits) || !int.TryParse(onlyDigits, out port))
+            {
+                throw new InvalidOperationException($"Outline Access Key의 포트 정보({portText})가 숫자 형식이 아닙니다.");
+            }
         }
 
         return new AccessKeyConfig(
@@ -256,22 +257,38 @@ public sealed class ChinaOptimizedVpnService : IVpnService
             credentials[(separator + 1)..].Trim());
     }
 
+    private AccessKeyConfig ParseSshFullString(string decoded)
+    {
+        var atIndex = decoded.LastIndexOf('@');
+        if (atIndex < 0) throw new InvalidOperationException("내부 인증 정보에 @ 기호가 없습니다.");
+
+        var authPart = decoded[..atIndex];
+        var hostPart = decoded[(atIndex + 1)..];
+
+        var authSep = authPart.IndexOf(':');
+        if (authSep <= 0) throw new InvalidOperationException("인증 정보(method:password) 형식이 잘못되었습니다.");
+
+        var hostSep = hostPart.LastIndexOf(':');
+        if (hostSep <= 0) throw new InvalidOperationException($"서버 주소({hostPart}) 형식이 잘못되었습니다.");
+
+        var portText = hostPart[(hostSep + 1)..].Trim();
+        if (!int.TryParse(portText, out var port))
+            throw new InvalidOperationException($"포트 정보({portText})가 올바르지 않습니다.");
+
+        return new AccessKeyConfig(
+            hostPart[..hostSep].Trim(),
+            port,
+            authPart[..authSep].Trim(),
+            authPart[(authSep + 1)..].Trim());
+    }
+
     private static string DecodeUserInfo(string userInfoPart)
     {
-        if (userInfoPart.Contains(':'))
-        {
-            return Uri.UnescapeDataString(userInfoPart);
-        }
+        if (userInfoPart.Contains(':')) return Uri.UnescapeDataString(userInfoPart);
 
-        var normalized = userInfoPart
-            .Replace('-', '+')
-            .Replace('_', '/');
-
+        var normalized = userInfoPart.Replace('-', '+').Replace('_', '/');
         var remainder = normalized.Length % 4;
-        if (remainder > 0)
-        {
-            normalized = normalized.PadRight(normalized.Length + (4 - remainder), '=');
-        }
+        if (remainder > 0) normalized = normalized.PadRight(normalized.Length + (4 - remainder), '=');
 
         var bytes = Convert.FromBase64String(normalized);
         return Encoding.UTF8.GetString(bytes);
@@ -299,207 +316,72 @@ public sealed class ChinaOptimizedVpnService : IVpnService
     {
         return new
         {
-            log = new
-            {
-                disabled = false,
-                level = "info",
-                output = _logPath
-            },
+            log = new { disabled = false, level = "info", output = _logPath },
             inbounds = new object[]
             {
-                new
-                {
-                    type = "mixed",
-                    tag = "mixed-in",
-                    listen = "127.0.0.1",
-                    listen_port = 2080,
-                    set_system_proxy = true
-                }
+                new { type = "mixed", tag = "mixed-in", listen = "127.0.0.1", listen_port = GetFreePort(2080), set_system_proxy = true }
             },
             outbounds = new object[]
             {
-                new
-                {
-                    type = "shadowsocks",
-                    tag = "ss-out",
-                    server = accessKey.Server,
-                    server_port = accessKey.Port,
-                    method = accessKey.Method,
-                    password = accessKey.Password
-                },
-                new
-                {
-                    type = "direct",
-                    tag = "direct"
-                }
+                new { type = "shadowsocks", tag = "ss-out", server = accessKey.Server, server_port = accessKey.Port, method = NormalizeSshMethod(accessKey.Method), password = accessKey.Password },
+                new { type = "direct", tag = "direct" }
             },
-            route = new
-            {
-                auto_detect_interface = true,
-                final = "ss-out"
-            }
+            route = new { auto_detect_interface = true, final = "ss-out" }
         };
     }
 
     private object BuildVlessRealityConfig(ChinaModeConnectionProfile profile)
     {
-        if (string.IsNullOrWhiteSpace(profile.Server))
-        {
-            throw new InvalidOperationException("VLESS REALITY 서버 주소를 입력해 주세요.");
-        }
-
-        if (profile.Port <= 0 || profile.Port > 65535)
-        {
-            throw new InvalidOperationException("VLESS REALITY 포트가 올바르지 않습니다.");
-        }
-
-        if (string.IsNullOrWhiteSpace(profile.Uuid))
-        {
-            throw new InvalidOperationException("VLESS REALITY UUID를 입력해 주세요.");
-        }
-
-        if (string.IsNullOrWhiteSpace(profile.PublicKey))
-        {
-            throw new InvalidOperationException("VLESS REALITY Public Key를 입력해 주세요.");
-        }
-
-        if (string.IsNullOrWhiteSpace(profile.ServerName))
-        {
-            throw new InvalidOperationException("VLESS REALITY Server Name(SNI)을 입력해 주세요.");
-        }
+        if (string.IsNullOrWhiteSpace(profile.Server)) throw new InvalidOperationException("VLESS REALITY 서버 주소를 입력해 주세요.");
+        if (profile.Port <= 0 || profile.Port > 65535) throw new InvalidOperationException("VLESS REALITY 포트가 올바르지 않습니다.");
+        if (string.IsNullOrWhiteSpace(profile.Uuid)) throw new InvalidOperationException("VLESS REALITY UUID를 입력해 주세요.");
+        if (string.IsNullOrWhiteSpace(profile.PublicKey)) throw new InvalidOperationException("VLESS REALITY Public Key를 입력해 주세요.");
+        if (string.IsNullOrWhiteSpace(profile.ServerName)) throw new InvalidOperationException("VLESS REALITY Server Name(SNI)을 입력해 주세요.");
 
         return new
         {
-            log = new
-            {
-                disabled = false,
-                level = "info",
-                output = _logPath
-            },
+            log = new { disabled = false, level = "info", output = _logPath },
             inbounds = new object[]
             {
-                new
-                {
-                    type = "mixed",
-                    tag = "mixed-in",
-                    listen = "127.0.0.1",
-                    listen_port = 2080,
-                    set_system_proxy = true
-                }
+                new { type = "mixed", tag = "mixed-in", listen = "127.0.0.1", listen_port = GetFreePort(2080), set_system_proxy = true }
             },
             outbounds = new object[]
             {
                 new
                 {
-                    type = "vless",
-                    tag = "vless-reality-out",
-                    server = profile.Server,
-                    server_port = profile.Port,
-                    uuid = profile.Uuid,
-                    packet_encoding = "xudp",
-                    tls = new
-                    {
-                        enabled = true,
-                        server_name = profile.ServerName,
-                        utls = new
-                        {
-                            enabled = true,
-                            fingerprint = profile.Fingerprint
-                        },
-                        reality = new
-                        {
-                            enabled = true,
-                            public_key = profile.PublicKey,
-                            short_id = profile.ShortId
-                        }
-                    }
+                    type = "vless", tag = "vless-reality-out", server = profile.Server, server_port = profile.Port, uuid = profile.Uuid, packet_encoding = "xudp",
+                    tls = new { enabled = true, server_name = profile.ServerName, utls = new { enabled = true, fingerprint = profile.Fingerprint }, reality = new { enabled = true, public_key = profile.PublicKey, short_id = profile.ShortId } }
                 },
-                new
-                {
-                    type = "direct",
-                    tag = "direct"
-                }
+                new { type = "direct", tag = "direct" }
             },
-            route = new
-            {
-                auto_detect_interface = true,
-                final = "vless-reality-out"
-            }
+            route = new { auto_detect_interface = true, final = "vless-reality-out" }
         };
     }
 
     private object BuildTrojanConfig(ChinaModeConnectionProfile profile)
     {
-        if (string.IsNullOrWhiteSpace(profile.Server))
-        {
-            throw new InvalidOperationException("Trojan 서버 주소를 입력해 주세요.");
-        }
-
-        if (profile.Port <= 0 || profile.Port > 65535)
-        {
-            throw new InvalidOperationException("Trojan 포트가 올바르지 않습니다.");
-        }
-
-        if (string.IsNullOrWhiteSpace(profile.Password))
-        {
-            throw new InvalidOperationException("Trojan 비밀번호를 입력해 주세요.");
-        }
-
-        if (string.IsNullOrWhiteSpace(profile.ServerName))
-        {
-            throw new InvalidOperationException("Trojan Server Name(SNI)을 입력해 주세요.");
-        }
+        if (string.IsNullOrWhiteSpace(profile.Server)) throw new InvalidOperationException("Trojan 서버 주소를 입력해 주세요.");
+        if (profile.Port <= 0 || profile.Port > 65535) throw new InvalidOperationException("Trojan 포트가 올바르지 않습니다.");
+        if (string.IsNullOrWhiteSpace(profile.Password)) throw new InvalidOperationException("Trojan 비밀번호를 입력해 주세요.");
+        if (string.IsNullOrWhiteSpace(profile.ServerName)) throw new InvalidOperationException("Trojan Server Name(SNI)을 입력해 주세요.");
 
         return new
         {
-            log = new
-            {
-                disabled = false,
-                level = "info",
-                output = _logPath
-            },
+            log = new { disabled = false, level = "info", output = _logPath },
             inbounds = new object[]
             {
-                new
-                {
-                    type = "mixed",
-                    tag = "mixed-in",
-                    listen = "127.0.0.1",
-                    listen_port = 2080,
-                    set_system_proxy = true
-                }
+                new { type = "mixed", tag = "mixed-in", listen = "127.0.0.1", listen_port = GetFreePort(2080), set_system_proxy = true }
             },
             outbounds = new object[]
             {
                 new
                 {
-                    type = "trojan",
-                    tag = "trojan-out",
-                    server = profile.Server,
-                    server_port = profile.Port,
-                    password = profile.Password,
-                    tls = new
-                    {
-                        enabled = true,
-                        server_name = profile.ServerName,
-                        utls = new
-                        {
-                            enabled = true,
-                            fingerprint = profile.Fingerprint
-                        }
-                    }
+                    type = "trojan", tag = "trojan-out", server = profile.Server, server_port = profile.Port, password = profile.Password,
+                    tls = new { enabled = true, server_name = profile.ServerName, utls = new { enabled = true, fingerprint = profile.Fingerprint } }
                 },
-                new
-                {
-                    type = "direct",
-                    tag = "direct"
-                }
+                new { type = "direct", tag = "direct" }
             },
-            route = new
-            {
-                auto_detect_interface = true,
-                final = "trojan-out"
-            }
+            route = new { auto_detect_interface = true, final = "trojan-out" }
         };
     }
 
@@ -508,44 +390,23 @@ public sealed class ChinaOptimizedVpnService : IVpnService
         try
         {
             const string ruleName = "SimpleVPN - China Mode Engine (sing-box)";
-
             RunNetsh($"advfirewall firewall delete rule name=\"{ruleName}\"");
             RunNetsh($"advfirewall firewall add rule name=\"{ruleName}\" dir=in action=allow program=\"{enginePath}\" enable=yes");
             RunNetsh($"advfirewall firewall add rule name=\"{ruleName}\" dir=out action=allow program=\"{enginePath}\" enable=yes");
-
             PublishStatus("방화벽 허용 규칙을 적용했습니다.");
         }
-        catch (Exception ex)
-        {
-            PublishStatus($"방화벽 설정 경고 (권한 필요): {ex.Message}");
-        }
+        catch (Exception ex) { PublishStatus($"방화벽 설정 경고: {ex.Message}"); }
     }
 
     private static void RunNetsh(string arguments)
     {
-        using var process = new Process
-        {
-            StartInfo = new ProcessStartInfo
-            {
-                FileName = "netsh",
-                Arguments = arguments,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true
-            }
-        };
-        process.Start();
-        process.WaitForExit();
+        using var process = new Process { StartInfo = new ProcessStartInfo { FileName = "netsh", Arguments = arguments, UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true } };
+        process.Start(); process.WaitForExit();
     }
 
-    private Process StartEngine(string enginePath)
+    private Process StartEngineWithCapture(string enginePath, StringBuilder logCapture)
     {
-        if (File.Exists(_logPath))
-        {
-            File.Delete(_logPath);
-        }
-
+        if (File.Exists(_logPath)) File.Delete(_logPath);
         var startInfo = new ProcessStartInfo
         {
             FileName = enginePath,
@@ -559,38 +420,12 @@ public sealed class ChinaOptimizedVpnService : IVpnService
 
         var process = new Process { StartInfo = startInfo };
         process.Start();
-        _ = ConsumeStreamAsync(process.StandardOutput);
-        _ = ConsumeStreamAsync(process.StandardError);
+        _ = ConsumeStreamWithCaptureAsync(process.StandardOutput, logCapture);
+        _ = ConsumeStreamWithCaptureAsync(process.StandardError, logCapture);
         return process;
     }
 
-    private async Task StopEngineAsync()
-    {
-        if (_engineProcess == null)
-        {
-            return;
-        }
-
-        try
-        {
-            if (!_engineProcess.HasExited)
-            {
-                PublishStatus("China Mode 엔진 종료 중...");
-                _engineProcess.Kill(entireProcessTree: true);
-                await _engineProcess.WaitForExitAsync().ConfigureAwait(false);
-            }
-        }
-        catch
-        {
-        }
-        finally
-        {
-            _engineProcess.Dispose();
-            _engineProcess = null;
-        }
-    }
-
-    private async Task ConsumeStreamAsync(StreamReader reader)
+    private async Task ConsumeStreamWithCaptureAsync(StreamReader reader, StringBuilder capture)
     {
         try
         {
@@ -598,50 +433,75 @@ public sealed class ChinaOptimizedVpnService : IVpnService
             {
                 if (!string.IsNullOrWhiteSpace(line))
                 {
-                    PublishStatus(line);
+                    var trimmed = line.Trim();
+                    PublishStatus(trimmed);
+                    if (capture.Length < 1000) capture.AppendLine(trimmed); // 최대 1000자만 캡처
                 }
             }
         }
-        catch
-        {
-        }
+        catch { }
+    }
+
+    private Process StartEngine(string enginePath)
+    {
+        if (File.Exists(_logPath)) File.Delete(_logPath);
+        var startInfo = new ProcessStartInfo { FileName = enginePath, Arguments = $"run -c \"{_configPath}\"", WorkingDirectory = Path.GetDirectoryName(enginePath) ?? AppContext.BaseDirectory, UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
+        var process = new Process { StartInfo = startInfo };
+        process.Start();
+        _ = ConsumeStreamAsync(process.StandardOutput);
+        _ = ConsumeStreamAsync(process.StandardError);
+        return process;
+    }
+
+    private async Task StopEngineAsync()
+    {
+        if (_engineProcess == null) return;
+        try { if (!_engineProcess.HasExited) { _engineProcess.Kill(entireProcessTree: true); await _engineProcess.WaitForExitAsync().ConfigureAwait(false); } } catch { }
+        finally { _engineProcess.Dispose(); _engineProcess = null; }
+    }
+
+    private async Task ConsumeStreamAsync(StreamReader reader)
+    {
+        try { while (await reader.ReadLineAsync().ConfigureAwait(false) is { } line) { if (!string.IsNullOrWhiteSpace(line)) PublishStatus(line); } } catch { }
     }
 
     private async Task<string> TryReadLogTailAsync()
     {
         try
         {
-            if (!File.Exists(_logPath))
-            {
-                return string.Empty;
-            }
-
-            var content = await File.ReadAllTextAsync(_logPath).ConfigureAwait(false);
+            if (!File.Exists(_logPath)) return string.Empty;
+            using var fs = new FileStream(_logPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            using var reader = new StreamReader(fs);
+            var content = await reader.ReadToEndAsync().ConfigureAwait(false);
             var lines = content.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
-            if (lines.Length == 0)
+            if (lines.Length == 0) return string.Empty;
+            for (int i = lines.Length - 1; i >= 0; i--)
             {
-                return string.Empty;
+                var line = lines[i].Trim();
+                if (line.Contains("ERROR", StringComparison.OrdinalIgnoreCase) || line.Contains("FATAL", StringComparison.OrdinalIgnoreCase) || line.Contains("panic", StringComparison.OrdinalIgnoreCase)) return $"원인: {line}";
             }
-
             return $"최근 로그: {lines[^1].Trim()}";
         }
-        catch
-        {
-            return string.Empty;
-        }
+        catch (Exception ex) { return $"(로그 읽기 실패: {ex.Message})"; }
     }
 
-    private void PublishStatus(string message)
+    private void PublishStatus(string message) { if (!string.IsNullOrWhiteSpace(message)) StatusChanged?.Invoke(message.Trim()); }
+    private void ThrowIfDisposed() { ObjectDisposedException.ThrowIf(_disposed, this); }
+
+    private static int GetFreePort(int startPort)
     {
-        if (!string.IsNullOrWhiteSpace(message))
+        for (int port = startPort; port < startPort + 100; port++)
         {
-            StatusChanged?.Invoke(message.Trim());
+            try { using var listener = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, port); listener.Start(); return port; } catch { }
         }
+        return startPort;
     }
 
-    private void ThrowIfDisposed()
+    private static string NormalizeSshMethod(string method)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (string.IsNullOrWhiteSpace(method)) return "chacha20-ietf-poly1305";
+        var normalized = method.ToLowerInvariant().Trim();
+        return normalized switch { "chacha20-poly1305" => "chacha20-ietf-poly1305", "chacha20-ietf" => "chacha20-ietf-poly1305", _ => normalized };
     }
 
     private sealed record AccessKeyConfig(string Server, int Port, string Method, string Password);

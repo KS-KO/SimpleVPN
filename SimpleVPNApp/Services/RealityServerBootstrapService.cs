@@ -13,25 +13,48 @@ public sealed class RealityServerBootstrapService
 {
     // 정해진 포트(443)와 도메인(google.com)을 기본으로 하는 sing-box VLESS REALITY 설치 스크립트 예시
     private const string InstallScript = @"
-sudo bash -c '
-# Install sing-box
-if ! command -v sing-box &> /dev/null; then
-    curl -fsSL https://sing-box.app/gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/sing-box.gpg
-    sudo chmod a+r /etc/apt/keyrings/sing-box.gpg
-    echo ""deb [signed-by=/etc/apt/keyrings/sing-box.gpg] https://deb.sagernet.org/ sing-box main"" | sudo tee /etc/apt/sources.list.d/sing-box.list
-    sudo apt-get update
-    sudo apt-get install -y sing-box
+#!/bin/bash
+set -e
+
+# sudo 사용 가능 여부 확인
+SUDO_CMD=""""
+if command -v sudo &> /dev/null; then
+    SUDO_CMD=""sudo""
 fi
 
-# Generate keys
+# sing-box 설치를 위한 배포판 감지 및 패키지 매니저 실행
+if ! command -v sing-box &> /dev/null; then
+    if command -v apt-get &> /dev/null; then
+        $SUDO_CMD apt-get update
+        $SUDO_CMD apt-get install -y curl gpg
+        $SUDO_CMD mkdir -p /etc/apt/keyrings
+        curl -fsSL https://sing-box.app/gpg.key | $SUDO_CMD gpg --dearmor --yes -o /etc/apt/keyrings/sing-box.gpg
+        $SUDO_CMD chmod a+r /etc/apt/keyrings/sing-box.gpg
+        echo ""deb [signed-by=/etc/apt/keyrings/sing-box.gpg] https://deb.sagernet.org/ sing-box main"" | $SUDO_CMD tee /etc/apt/sources.list.d/sing-box.list
+        $SUDO_CMD apt-get update
+        $SUDO_CMD apt-get install -y sing-box
+    elif command -v dnf &> /dev/null; then
+        $SUDO_CMD dnf config-manager --add-repo https://yum.sagernet.org/sing-box.repo
+        $SUDO_CMD dnf install -y sing-box
+    elif command -v yum &> /dev/null; then
+        $SUDO_CMD yum-config-manager --add-repo https://yum.sagernet.org/sing-box.repo
+        $SUDO_CMD yum install -y sing-box
+    else
+        echo ""지원되지 않는 패키지 매니저입니다. 직접 sing-box를 설치해 주세요.""
+        exit 1
+    fi
+fi
+
+# 설정값 생성
 UUID=$(sing-box generate uuid)
 KEYPAIR=$(sing-box generate reality-keypair)
 PRIVATE_KEY=$(echo ""$KEYPAIR"" | grep ""Private key:"" | awk ""{print \$3}"")
 PUBLIC_KEY=$(echo ""$KEYPAIR"" | grep ""Public key:"" | awk ""{print \$3}"")
 SHORT_ID=$(sing-box generate rand --hex 8)
 
-# Create config
-cat <<EOF | sudo tee /etc/sing-box/config.json
+# 설정 파일 작성
+$SUDO_CMD mkdir -p /etc/sing-box
+cat <<EOF | $SUDO_CMD tee /etc/sing-box/config.json
 {
   ""inbounds"": [
     {
@@ -56,10 +79,10 @@ cat <<EOF | sudo tee /etc/sing-box/config.json
 }
 EOF
 
-sudo systemctl restart sing-box
-sudo systemctl enable sing-box
+$SUDO_CMD systemctl restart sing-box || $SUDO_CMD sing-box run -c /etc/sing-box/config.json &
+$SUDO_CMD systemctl enable sing-box &> /dev/null || true
 
-# Output for client
+# 클라이언트용 결과 출력
 echo ""RESULT_START""
 echo ""UUID: $UUID""
 echo ""PUBLIC_KEY: $PUBLIC_KEY""
@@ -67,7 +90,6 @@ echo ""SHORT_ID: $SHORT_ID""
 echo ""SNI: www.google.com""
 echo ""PORT: 443""
 echo ""RESULT_END""
-'
 ";
 
     public async Task<VlessRealityConfig> BootstrapAsync(string host, string user, string sshKeyPath)

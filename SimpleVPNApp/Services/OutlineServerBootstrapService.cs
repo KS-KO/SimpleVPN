@@ -8,7 +8,7 @@ namespace SimpleVPNApp.Services;
 
 public sealed class OutlineServerBootstrapService
 {
-    private const string InstallScript = "sudo bash -c \"$(wget -qO- https://raw.githubusercontent.com/OutlineFoundation/outline-apps/master/server_manager/install_scripts/install_server.sh)\"";
+    private const string InstallScript = "if command -v wget &> /dev/null; then sudo bash -c \"$(wget -qO- https://raw.githubusercontent.com/OutlineFoundation/outline-apps/master/server_manager/install_scripts/install_server.sh)\"; elif command -v curl &> /dev/null; then sudo bash -c \"$(curl -fsSL https://raw.githubusercontent.com/OutlineFoundation/outline-apps/master/server_manager/install_scripts/install_server.sh)\"; else echo 'wget or curl is required'; exit 1; fi";
 
     public async Task<OutlineServerBootstrapResult> BootstrapAsync(
         string host,

@@ -64,7 +64,9 @@ public sealed class OutlineManagementApiService
                 return errors == SslPolicyErrors.None || errors == SslPolicyErrors.RemoteCertificateChainErrors;
             }
 
-            var actual = NormalizeCertSha256(certificate.GetCertHashString());
+            using var hasher = System.Security.Cryptography.SHA256.Create();
+            var hashBytes = hasher.ComputeHash(certificate.RawData);
+            var actual = BitConverter.ToString(hashBytes).Replace("-", string.Empty, StringComparison.Ordinal);
             return string.Equals(actual, normalizedPin, StringComparison.OrdinalIgnoreCase);
         };
 

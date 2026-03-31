@@ -11,6 +11,11 @@
         Title="SimpleVPN" Height="750" Width="1100" MinHeight="700" MinWidth="1000"
         WindowStyle="None" ResizeMode="CanResize" Background="#101117"
         Icon="/Assets/logo.png" WindowStartupLocation="CenterScreen">
+    <Window.Triggers>
+        <EventTrigger RoutedEvent="Window.Loaded">
+            <BeginStoryboard Storyboard="{StaticResource FadeInAnimation}"/>
+        </EventTrigger>
+    </Window.Triggers>
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="44" CornerRadius="34" GlassFrameThickness="0" ResizeBorderThickness="8" UseAeroCaptionButtons="False"/>
     </shell:WindowChrome.WindowChrome>
@@ -86,9 +91,42 @@
                                 </Grid>
                             </Border>
 
-                            <Button Height="64" Command="{Binding ToggleConnectionCommand}" Margin="0,24,0,0" Style="{StaticResource ModernButtonStyle}" Background="{StaticResource PrimaryBrush}"><TextBlock Text="{Binding ButtonContent}" FontSize="18" FontWeight="Bold"/></Button>
+                            <Button Height="64" Command="{Binding ToggleConnectionCommand}" Margin="0,24,0,0" Background="{StaticResource PrimaryBrush}">
+                                <Button.RenderTransform><ScaleTransform ScaleX="1" ScaleY="1"/></Button.RenderTransform>
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource ModernButtonStyle}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsLoading}" Value="True">
+                                                <DataTrigger.EnterActions>
+                                                    <BeginStoryboard Name="PulseBegin" Storyboard="{StaticResource PulseAnimation}"/>
+                                                </DataTrigger.EnterActions>
+                                                <DataTrigger.ExitActions>
+                                                    <StopStoryboard BeginStoryboardName="PulseBegin"/>
+                                                </DataTrigger.ExitActions>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                                <TextBlock Text="{Binding ButtonContent}" FontSize="18" FontWeight="Bold"/>
+                            </Button>
                         </StackPanel>
-                        <Border Grid.Column="1" Width="130" Height="130" CornerRadius="28" Background="#11141D" BorderBrush="#343A53" BorderThickness="4" HorizontalAlignment="Center" VerticalAlignment="Center"><Image Source="/Assets/logo.png" Width="84" Height="84"/></Border>
+                        <Border Grid.Column="1" Width="130" Height="130" CornerRadius="28" Background="#11141D" BorderBrush="#343A53" BorderThickness="4" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <Border.Effect><DropShadowEffect BlurRadius="30" Color="{StaticResource PrimaryColor}" Opacity="0.2" ShadowDepth="0"/></Border.Effect>
+                            <Image Source="/Assets/logo.png" Width="84" Height="84">
+                                <Image.Style>
+                                    <Style TargetType="Image">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsConnected}" Value="True">
+                                                <Setter Property="Opacity" Value="1"/>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsConnected}" Value="False">
+                                                <Setter Property="Opacity" Value="0.6"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Image.Style>
+                            </Image>
+                        </Border>
                     </Grid>
                     
                     <!-- Connection Mode Toggle -->
@@ -148,8 +186,8 @@
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
-                                <TextBox Grid.Column="0" Text="{Binding NewCustomServerName, UpdateSourceTrigger=PropertyChanged}" Tag="Server Name" Background="Transparent" Foreground="White" BorderThickness="0" Padding="8,6" VerticalContentAlignment="Center"/>
-                                <TextBox Grid.Column="1" Text="{Binding NewCustomServerIp, UpdateSourceTrigger=PropertyChanged}" Tag="IP Address" Background="Transparent" Foreground="White" BorderThickness="0" Padding="8,6" VerticalContentAlignment="Center"/>
+                                <TextBox Grid.Column="0" Text="{Binding NewCustomServerName, UpdateSourceTrigger=PropertyChanged}" Tag="Server Name" Style="{StaticResource ModernTextBoxStyle}" ToolTip="서버 식별용 이름을 입력하세요 (예: 나의 서버 1)"/>
+                                <TextBox Grid.Column="1" Text="{Binding NewCustomServerIp, UpdateSourceTrigger=PropertyChanged}" Tag="IP Address" Style="{StaticResource ModernTextBoxStyle}" ToolTip="서버의 공인 IP 주소를 입력하세요 (예: 1.2.3.4)"/>
                                 <Button Grid.Column="2" Command="{Binding AddCustomServerCommand}" Style="{StaticResource ModernButtonStyle}" Width="32" Height="32" Padding="0">
                                     <TextBlock Text="+" FontSize="18" FontWeight="Bold" Margin="0,-2,0,0"/>
                                 </Button>
@@ -202,7 +240,7 @@
                                     <!-- Slot Name for Saving -->
                                     <Grid Margin="0,10,0,0">
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="8"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                        <TextBox Grid.Column="0" Text="{Binding ChinaModeProfileName}" Background="#141824" Foreground="White" BorderBrush="#38405C" BorderThickness="1" Padding="12,10" SelectionBrush="{StaticResource PrimaryBrush}"/>
+                                        <TextBox Grid.Column="0" Text="{Binding ChinaModeProfileName}" Style="{StaticResource ModernTextBoxStyle}" Tag="Slot Name (e.g. My Tokyo Server)" ToolTip="현재 설정을 저장할 프로필 이름을 입력하세요."/>
                                         <Button Grid.Column="2" Command="{Binding SaveChinaProfileSlotCommand}" Style="{StaticResource ModernButtonStyle}" Height="40" Padding="16,0"><TextBlock Text="슬롯 저장" FontSize="12" FontWeight="Bold"/></Button>
                                     </Grid>
                                 </StackPanel>
@@ -237,12 +275,12 @@
 
                                         <Grid>
                                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="8"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                            <TextBox Grid.Column="0" Text="{Binding OutlineSshHost, UpdateSourceTrigger=PropertyChanged}" Tag="SSH Host (IP)" Background="#141824" Foreground="White" BorderBrush="#38405C" BorderThickness="1" Padding="12,10" Margin="0,0,0,8"/>
-                                            <TextBox Grid.Column="2" Text="{Binding OutlineSshUser, UpdateSourceTrigger=PropertyChanged}" Width="100" Tag="User" Background="#141824" Foreground="White" BorderBrush="#38405C" BorderThickness="1" Padding="12,10" Margin="0,0,0,8"/>
+                                            <TextBox Grid.Column="0" Text="{Binding OutlineSshHost, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource ModernTextBoxStyle}" ToolTip="서버 호스트 주소(IP)를 입력하세요." Margin="0,0,0,8"/>
+                                            <TextBox Grid.Column="2" Text="{Binding OutlineSshUser, UpdateSourceTrigger=PropertyChanged}" Width="100" Tag="User" Style="{StaticResource ModernTextBoxStyle}" ToolTip="SSH 사용자 계정 (기본: root)" Margin="0,0,0,8"/>
                                         </Grid>
                                         <Grid Margin="0,0,0,8">
                                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="36"/><ColumnDefinition Width="8"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                            <TextBox Grid.Column="0" Text="{Binding OutlineSshKeyPath, UpdateSourceTrigger=PropertyChanged}" Tag="SSH Key Path (.pem / .key)" Background="#141824" Foreground="White" BorderBrush="#38405C" BorderThickness="1" Padding="12,10"/>
+                                            <TextBox Grid.Column="0" Text="{Binding OutlineSshKeyPath, UpdateSourceTrigger=PropertyChanged}" Tag="SSH Key Path (.pem / .key)" Style="{StaticResource ModernTextBoxStyle}" ToolTip="SSH 접속을 위한 개인키 파일(.pem) 경로를 입력하세요."/>
                                             <Button Grid.Column="1" Command="{Binding BrowseSshKeyCommand}" Style="{StaticResource GhostButtonStyle}" BorderThickness="1" BorderBrush="#38405C" Margin="4,0,0,0" ToolTip="Browse Key File"><TextBlock Text="📁" FontSize="12"/></Button>
                                             <Button Grid.Column="3" Command="{Binding BootstrapOutlineServerCommand}" Style="{StaticResource ModernButtonStyle}" Height="40" Padding="16,0" Background="{StaticResource PrimaryBrush}"><TextBlock Text="서버 새로 설치" FontSize="12" FontWeight="Bold"/></Button>
                                         </Grid>
@@ -254,12 +292,12 @@
                                 <TextBlock Text="Manual Configuration" Foreground="#A1A8C8" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,8"/>
                                 <Grid>
                                     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="10"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                                    <TextBox Grid.Column="0" Text="{Binding OutlineApiUrl, UpdateSourceTrigger=PropertyChanged}" Tag="API URL" Background="#0F1220" Foreground="White" BorderBrush="#38405C" BorderThickness="1" Padding="12,10" Margin="0,0,0,10"/>
-                                    <TextBox Grid.Column="2" Text="{Binding OutlineCertSha256, UpdateSourceTrigger=PropertyChanged}" Tag="Cert SHA256" Background="#0F1220" Foreground="White" BorderBrush="#38405C" BorderThickness="1" Padding="12,10" Margin="0,0,0,10"/>
+                                    <TextBox Grid.Column="0" Text="{Binding OutlineApiUrl, UpdateSourceTrigger=PropertyChanged}" Tag="API URL" Style="{StaticResource ModernTextBoxStyle}" ToolTip="Outline Server Manager에서 제공하는 apiUrl을 입력하세요. (https://...:port/secret)" Margin="0,0,0,10"/>
+                                    <TextBox Grid.Column="2" Text="{Binding OutlineCertSha256, UpdateSourceTrigger=PropertyChanged}" Tag="Cert SHA256" Style="{StaticResource ModernTextBoxStyle}" ToolTip="인증서 지문(certSha256)을 입력하세요." Margin="0,0,0,10"/>
                                 </Grid>
                                 <Grid>
                                     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="10"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                    <TextBox Grid.Column="0" Text="{Binding ChinaModeAccessKey, UpdateSourceTrigger=PropertyChanged}" Background="#0F1220" Foreground="White" BorderBrush="#38405C" BorderThickness="1" Padding="12,10"/>
+                                    <TextBox Grid.Column="0" Text="{Binding ChinaModeAccessKey, UpdateSourceTrigger=PropertyChanged}" Tag="Access Key (ss://...)" Style="{StaticResource ModernTextBoxStyle}" ToolTip="연결에 사용될 쉐도우삭스 키(ss://)를 입력하세요."/>
                                     <Button Grid.Column="2" Command="{Binding GenerateAccessKeyFromExistingServerCommand}" Style="{StaticResource GhostButtonStyle}" Padding="12,0"><TextBlock Text="키 생성" FontSize="12"/></Button>
                                 </Grid>
                             </StackPanel>
@@ -285,12 +323,12 @@
 
                                         <Grid>
                                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="8"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                            <TextBox Grid.Column="0" Text="{Binding OutlineSshHost, UpdateSourceTrigger=PropertyChanged}" Tag="SSH Host (IP)" Background="#141824" Foreground="White" BorderBrush="#38405C" BorderThickness="1" Padding="12,10" Margin="0,0,0,8"/>
-                                            <TextBox Grid.Column="2" Text="{Binding OutlineSshUser, UpdateSourceTrigger=PropertyChanged}" Width="100" Tag="User" Background="#141824" Foreground="White" BorderBrush="#38405C" BorderThickness="1" Padding="12,10" Margin="0,0,0,8"/>
+                                            <TextBox Grid.Column="0" Text="{Binding OutlineSshHost, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource ModernTextBoxStyle}" ToolTip="서버 호스트 주소(IP)를 입력하세요." Margin="0,0,0,8"/>
+                                            <TextBox Grid.Column="2" Text="{Binding OutlineSshUser, UpdateSourceTrigger=PropertyChanged}" Width="100" Tag="User" Style="{StaticResource ModernTextBoxStyle}" ToolTip="SSH 사용자 계정 (기본: root)" Margin="0,0,0,8"/>
                                         </Grid>
                                         <Grid>
                                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="36"/><ColumnDefinition Width="8"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                            <TextBox Grid.Column="0" Text="{Binding OutlineSshKeyPath, UpdateSourceTrigger=PropertyChanged}" Tag="SSH Key Path (.pem / .key)" Background="#141824" Foreground="White" BorderBrush="#38405C" BorderThickness="1" Padding="12,10"/>
+                                            <TextBox Grid.Column="0" Text="{Binding OutlineSshKeyPath, UpdateSourceTrigger=PropertyChanged}" Tag="SSH Key Path (.pem / .key)" Style="{StaticResource ModernTextBoxStyle}" ToolTip="SSH 접속을 위한 개인키 파일(.pem) 경로를 입력하세요."/>
                                             <Button Grid.Column="1" Command="{Binding BrowseSshKeyCommand}" Style="{StaticResource GhostButtonStyle}" BorderThickness="1" BorderBrush="#38405C" Margin="4,0,0,0" ToolTip="Browse Key File"><TextBlock Text="📁" FontSize="12"/></Button>
                                             <Button Grid.Column="3" Command="{Binding ProvisionRealityServerCommand}" Style="{StaticResource ModernButtonStyle}" Height="40" Padding="16,0" Background="{StaticResource PrimaryBrush}"><TextBlock Text="서버 자동 구축" FontSize="12" FontWeight="Bold"/></Button>
                                         </Grid>
@@ -301,15 +339,15 @@
                                 <TextBlock Text="Manual Configuration" Foreground="#A1A8C8" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,8"/>
                                 <Grid>
                                     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="10"/><ColumnDefinition Width="80"/></Grid.ColumnDefinitions>
-                                    <TextBox Grid.Column="0" Text="{Binding VlessRealityServer, UpdateSourceTrigger=PropertyChanged}" Tag="Server" Background="#0F1220" Foreground="White" BorderBrush="#38405C" BorderThickness="1" Padding="12,10" Margin="0,0,0,10"/>
-                                    <TextBox Grid.Column="2" Text="{Binding VlessRealityPort, UpdateSourceTrigger=PropertyChanged}" Tag="Port" Background="#0F1220" Foreground="White" BorderBrush="#38405C" BorderThickness="1" Padding="12,10" Margin="0,0,0,10"/>
+                                    <TextBox Grid.Column="0" Text="{Binding VlessRealityServer, UpdateSourceTrigger=PropertyChanged}" Tag="Server" Style="{StaticResource ModernTextBoxStyle}" ToolTip="VLESS 서버 도메인 또는 IP를 입력하세요." Margin="0,0,0,10"/>
+                                    <TextBox Grid.Column="2" Text="{Binding VlessRealityPort, UpdateSourceTrigger=PropertyChanged}" Tag="Port" Style="{StaticResource ModernTextBoxStyle}" ToolTip="포트 번호 (기본: 443)" Margin="0,0,0,10"/>
                                 </Grid>
-                                <TextBox Text="{Binding VlessRealityUuid, UpdateSourceTrigger=PropertyChanged}" Tag="UUID" Background="#0F1220" Foreground="White" BorderBrush="#38405C" BorderThickness="1" Padding="12,10" Margin="0,0,0,10"/>
-                                <TextBox Text="{Binding VlessRealityPublicKey, UpdateSourceTrigger=PropertyChanged}" Tag="Public Key" Background="#0F1220" Foreground="White" BorderBrush="#38405C" BorderThickness="1" Padding="12,10" Margin="0,0,0,10"/>
+                                <TextBox Text="{Binding VlessRealityUuid, UpdateSourceTrigger=PropertyChanged}" Tag="UUID" Style="{StaticResource ModernTextBoxStyle}" ToolTip="VLESS 사용자의 UUID를 입력하세요." Margin="0,0,0,10"/>
+                                <TextBox Text="{Binding VlessRealityPublicKey, UpdateSourceTrigger=PropertyChanged}" Tag="Public Key" Style="{StaticResource ModernTextBoxStyle}" ToolTip="Reality 공개키(PublicKey)를 입력하세요." Margin="0,0,0,10"/>
                                 <Grid>
                                     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="10"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                                    <TextBox Grid.Column="0" Text="{Binding VlessRealityServerName, UpdateSourceTrigger=PropertyChanged}" Tag="SNI" Background="#0F1220" Foreground="White" BorderBrush="#38405C" BorderThickness="1" Padding="12,10"/>
-                                    <TextBox Grid.Column="2" Text="{Binding VlessRealityShortId, UpdateSourceTrigger=PropertyChanged}" Tag="Short ID" Background="#0F1220" Foreground="White" BorderBrush="#38405C" BorderThickness="1" Padding="12,10"/>
+                                    <TextBox Grid.Column="0" Text="{Binding VlessRealityServerName, UpdateSourceTrigger=PropertyChanged}" Tag="SNI" Style="{StaticResource ModernTextBoxStyle}" ToolTip="SNI (가장할 도메인 주소)를 입력하세요."/>
+                                    <TextBox Grid.Column="2" Text="{Binding VlessRealityShortId, UpdateSourceTrigger=PropertyChanged}" Tag="Short ID" Style="{StaticResource ModernTextBoxStyle}" ToolTip="Reality Short ID를 입력하세요."/>
                                 </Grid>
                             </StackPanel>
 
