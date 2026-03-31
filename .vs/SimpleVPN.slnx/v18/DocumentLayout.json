@@ -1,14 +1,10 @@
 {
   "Version": 1,
-  "WorkspaceRootPath": "C:\\Project\\SimpleVPN\\",
+  "WorkspaceRootPath": "F:\\Project\\SimpleVPN\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{C9E72CF7-507F-C478-AC30-F769E665875E}|SimpleVPNApp\\SimpleVPNApp.csproj|c:\\project\\simplevpn\\simplevpnapp\\app.xaml.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{C9E72CF7-507F-C478-AC30-F769E665875E}|SimpleVPNApp\\SimpleVPNApp.csproj|solutionrelative:simplevpnapp\\app.xaml.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{C9E72CF7-507F-C478-AC30-F769E665875E}|SimpleVPNApp\\SimpleVPNApp.csproj|c:\\project\\simplevpn\\simplevpnapp\\assemblyinfo.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{C9E72CF7-507F-C478-AC30-F769E665875E}|SimpleVPNApp\\SimpleVPNApp.csproj|solutionrelative:simplevpnapp\\assemblyinfo.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+      "AbsoluteMoniker": "D:0:0:{C9E72CF7-507F-C478-AC30-F769E665875E}|SimpleVPNApp\\SimpleVPNApp.csproj|f:\\project\\simplevpn\\simplevpnapp\\simplevpnapp.csproj||{04B8AB82-A572-4FEF-95CE-5222444B6B64}|",
+      "RelativeMoniker": "D:0:0:{C9E72CF7-507F-C478-AC30-F769E665875E}|SimpleVPNApp\\SimpleVPNApp.csproj|solutionrelative:simplevpnapp\\simplevpnapp.csproj||{04B8AB82-A572-4FEF-95CE-5222444B6B64}|"
     }
   ],
   "DocumentGroupContainers": [
@@ -22,11 +18,11 @@
           "Children": [
             {
               "$type": "Bookmark",
-              "Name": "ST:0:0:{1c4feeaa-4718-4aa9-859d-94ce25d182ba}"
+              "Name": "ST:0:0:{3ae79031-e1bc-11d0-8f78-00a0c9110057}"
             },
             {
               "$type": "Bookmark",
-              "Name": "ST:0:0:{3ae79031-e1bc-11d0-8f78-00a0c9110057}"
+              "Name": "ST:0:0:{1c4feeaa-4718-4aa9-859d-94ce25d182ba}"
             },
             {
               "$type": "Bookmark",
@@ -59,27 +55,13 @@
             {
               "$type": "Document",
               "DocumentIndex": 0,
-              "Title": "App.xaml.cs",
-              "DocumentMoniker": "C:\\Project\\SimpleVPN\\SimpleVPNApp\\App.xaml.cs",
-              "RelativeDocumentMoniker": "SimpleVPNApp\\App.xaml.cs",
-              "ToolTip": "C:\\Project\\SimpleVPN\\SimpleVPNApp\\App.xaml.cs",
-              "RelativeToolTip": "SimpleVPNApp\\App.xaml.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-03-30T07:05:40.12Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 1,
-              "Title": "AssemblyInfo.cs",
-              "DocumentMoniker": "C:\\Project\\SimpleVPN\\SimpleVPNApp\\AssemblyInfo.cs",
-              "RelativeDocumentMoniker": "SimpleVPNApp\\AssemblyInfo.cs",
-              "ToolTip": "C:\\Project\\SimpleVPN\\SimpleVPNApp\\AssemblyInfo.cs",
-              "RelativeToolTip": "SimpleVPNApp\\AssemblyInfo.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-03-30T07:05:37.795Z",
+              "Title": "SimpleVPNApp",
+              "DocumentMoniker": "F:\\Project\\SimpleVPN\\SimpleVPNApp\\SimpleVPNApp.csproj",
+              "RelativeDocumentMoniker": "SimpleVPNApp\\SimpleVPNApp.csproj",
+              "ToolTip": "F:\\Project\\SimpleVPN\\SimpleVPNApp\\SimpleVPNApp.csproj",
+              "RelativeToolTip": "SimpleVPNApp\\SimpleVPNApp.csproj",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000758|",
+              "WhenOpened": "2026-03-31T12:06:35.495Z",
               "EditorCaption": ""
             }
           ]

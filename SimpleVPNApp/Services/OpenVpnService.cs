@@ -70,9 +70,19 @@ public sealed class OpenVpnService : IVpnService
             Directory.CreateDirectory(_configDirectory);
             Directory.CreateDirectory(_logDirectory);
 
+            // 기존 프로세스 정리 (로그 파일 잠금 해제 목적)
+            CleanupExistingProcesses();
+
             if (File.Exists(_logPath))
             {
-                File.Delete(_logPath);
+                try
+                {
+                    File.Delete(_logPath);
+                }
+                catch (IOException)
+                {
+                    // 로그 파일이 잠겨있어도 진행 (OpenVPN이 이어서 쓰게 됨)
+                }
             }
 
             await File.WriteAllTextAsync(
@@ -342,6 +352,28 @@ public sealed class OpenVpnService : IVpnService
         }
 
         return null;
+    }
+
+    private static void CleanupExistingProcesses()
+    {
+        foreach (var name in new[] { "openvpn", "openvpn-gui" })
+        {
+            foreach (var process in Process.GetProcessesByName(name))
+            {
+                try
+                {
+                    process.Kill(true);
+                    process.WaitForExit(2000);
+                }
+                catch
+                {
+                }
+                finally
+                {
+                    process.Dispose();
+                }
+            }
+        }
     }
 
     private void PublishStatus(string message)
