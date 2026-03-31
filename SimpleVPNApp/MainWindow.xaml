@@ -17,7 +17,21 @@
     <Window.DataContext><vm:MainViewModel /></Window.DataContext>
     <Grid>
         <tb:TaskbarIcon x:Name="MyNotifyIcon" ToolTipText="{Binding TrayToolTipText}" DoubleClickCommand="{Binding ShowWindowCommand}">
-            <tb:TaskbarIcon.IconSource><tb:GeneratedIconSource Text="S" Background="{StaticResource PrimaryBrush}" Foreground="White" FontSize="42" FontWeight="Bold" /></tb:TaskbarIcon.IconSource>
+            <tb:TaskbarIcon.IconSource>
+                <tb:GeneratedIconSource Text="S" Background="{StaticResource PrimaryBrush}" Foreground="White" FontSize="42" FontWeight="Bold" />
+            </tb:TaskbarIcon.IconSource>
+            <tb:TaskbarIcon.ContextMenu>
+                <ContextMenu Style="{StaticResource TrayContextMenuStyle}">
+                    <MenuItem Header="열기" Command="{Binding ShowWindowCommand}" Style="{StaticResource TrayMenuItemStyle}"/>
+                    <Separator Style="{StaticResource TraySeparatorStyle}"/>
+                    <MenuItem Header="연결하기" Command="{Binding ToggleConnectionCommand}" Style="{StaticResource TrayMenuItemStyle}" 
+                              Visibility="{Binding IsConnected, Converter={StaticResource InverseBooleanToVisibilityConverter}}"/>
+                    <MenuItem Header="연결 해제" Command="{Binding ToggleConnectionCommand}" Style="{StaticResource TrayMenuItemStyle}" 
+                              Visibility="{Binding IsConnected, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                    <Separator Style="{StaticResource TraySeparatorStyle}"/>
+                    <MenuItem Header="종료" Command="{Binding ExitAppCommand}" Style="{StaticResource TrayDangerMenuItemStyle}"/>
+                </ContextMenu>
+            </tb:TaskbarIcon.ContextMenu>
         </tb:TaskbarIcon>
         <Border Margin="8" CornerRadius="34" BorderThickness="1.5" BorderBrush="#303446" Background="#12131A"/>
         <Grid Margin="24">
