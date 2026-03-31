@@ -1,10 +1,12 @@
 using System;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Threading;
 using Microsoft.Win32;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -22,8 +24,11 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private readonly NetworkInfoService _networkInfoService = new();
     private readonly OutlineManagementApiService _outlineManagementApiService = new();
     private readonly OutlineServerBootstrapService _outlineServerBootstrapService = new();
+    private readonly RealityServerBootstrapService _realityServerBootstrapService = new();
     private readonly LocalSettingsService _localSettingsService = new();
+    private readonly FirewallService _firewallService = new();
     private IVpnService _vpnService;
+    private readonly DispatcherTimer _statsTimer;
     private CancellationTokenSource? _externalClientMonitorCts;
     private bool _isRestoringSettings;
 
@@ -77,10 +82,32 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] private string _trojanServerName = string.Empty;
     [ObservableProperty] private string _trojanFingerprint = "chrome";
 
+    [ObservableProperty] private string _downloadSpeedText = "0 B/s";
+    [ObservableProperty] private string _uploadSpeedText = "0 B/s";
+    [ObservableProperty] private string _totalReceivedText = "0 B";
+    [ObservableProperty] private string _totalSentText = "0 B";
+    [ObservableProperty] private string _connectionDurationText = "00:00:00";
+    [ObservableProperty] private bool _isKillSwitchEnabled;
+    [ObservableProperty] private bool _isTestingPing;
+
+    [ObservableProperty] private ObservableCollection<VpnServer> _customServers = new();
+    [ObservableProperty] private string _newCustomServerName = string.Empty;
+    [ObservableProperty] private string _newCustomServerIp = string.Empty;
+
+    [ObservableProperty] private ObservableCollection<SshConfigParserService.SshHostInfo> _knownSshHosts = new();
+    [ObservableProperty] private SshConfigParserService.SshHostInfo? _selectedKnownSshHost;
+
     public MainViewModel()
     {
         _vpnService = new WindowsBuiltInVpnService();
         _vpnService.StatusChanged += OnVpnStatusChanged;
+
+        _statsTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(1)
+        };
+        _statsTimer.Tick += OnStatsTimerTick;
+        _statsTimer.Start();
 
         ConnectionOptions = new ObservableCollection<VpnConnectionOption>
         {
@@ -99,9 +126,11 @@ public partial class MainViewModel : ObservableObject, IDisposable
         SelectedChinaModeProfile = ChinaModeProfiles[0];
         SelectedConnectionOption = ConnectionOptions[0];
 
-        _ = RestoreChinaModeSettingsAsync();
+        _ = RestoreAppSettingsAsync();
         _ = FetchServersAsync();
         _ = RefreshIpInfoAsync();
+        TryAutoDetectSshSettings();
+        DiscoverKnownSshHosts();
     }
 
     [RelayCommand]
@@ -122,6 +151,50 @@ public partial class MainViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
+    private async Task RefreshPingCommandAsync()
+    {
+        if (IsTestingPing) return;
+        IsTestingPing = true;
+        try
+        {
+            var servers = Servers.ToList();
+            var tasks = servers.Select(async s =>
+            {
+                s.Ping = await PingService.GetLatencyAsync(s.IP).ConfigureAwait(false);
+            });
+            await Task.WhenAll(tasks).ConfigureAwait(false);
+            
+            // Ping 값 갱신 후 리스트 정렬 (ObservableCollection은 정렬 시 컬렉션 재생성 권장)
+            var sorted = servers.OrderBy(s => s.Ping <= 0 ? int.MaxValue : s.Ping).ToList();
+            await RunOnUiAsync(() =>
+            {
+                Servers.Clear();
+                foreach (var s in sorted) Servers.Add(s);
+            });
+        }
+        finally
+        {
+            IsTestingPing = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task SmartConnectCommandAsync()
+    {
+        await RefreshPingCommandAsync().ConfigureAwait(false);
+        var best = Servers.FirstOrDefault(s => s.Ping > 0 && s.Ping < 500);
+        if (best != null)
+        {
+            SelectedServer = best;
+            await ToggleConnectionCommand.ExecuteAsync(null).ConfigureAwait(false);
+        }
+        else
+        {
+            await RunOnUiAsync(() => MessageBox.Show("안정적인 연결이 가능한 서버를 찾지 못했습니다. 목록을 새로고침하거나 수동으로 선택해 주세요.", "Smart Connect")).ConfigureAwait(false);
+        }
+    }
+
+    [RelayCommand]
     private async Task FetchServersAsync()
     {
         await RunOnUiAsync(() =>
@@ -137,6 +210,14 @@ public partial class MainViewModel : ObservableObject, IDisposable
             await RunOnUiAsync(() =>
             {
                 Servers.Clear();
+                
+                // 커스텀 서버 먼저 추가
+                foreach (var server in CustomServers)
+                {
+                    Servers.Add(server);
+                }
+                
+                // API 서버 추가
                 foreach (var server in fetchedServers)
                 {
                     Servers.Add(server);
@@ -157,6 +238,108 @@ public partial class MainViewModel : ObservableObject, IDisposable
             {
                 StatusMessage = $"서버 목록 조회 실패: {ex.Message}";
                 ConnectionDetails = "서버 목록을 불러오지 못했습니다.";
+            }).ConfigureAwait(false);
+        }
+        finally
+        {
+            await RunOnUiAsync(() => IsLoading = false).ConfigureAwait(false);
+        }
+    }
+
+    [RelayCommand]
+    private void CopySelectedServerIpToChinaMode(VpnServer? server)
+    {
+        var target = server ?? SelectedServer;
+        if (target == null) return;
+        
+        // 필드 업데이트
+        OutlineSshHost = target.IP;
+        VlessRealityServer = target.IP;
+        TrojanServer = target.IP;
+        
+        var msg = $"서버 IP({target.IP})가 China Mode 설정에 복사되었습니다.";
+        StatusMessage = msg;
+        ConnectionDetails = $"{msg} (SSH root 권한 필요)";
+        
+        // 즉시 저장 및 UI 반영 강제
+        PersistChinaModeSettings();
+    }
+
+    [RelayCommand]
+    private void BrowseSshKey()
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "SSH Private Key 선택",
+            Filter = "Private Key 파일|*.pem;*.key;id_rsa|모든 파일|*.*"
+        };
+
+        if (dialog.ShowDialog() == true)
+        {
+            OutlineSshKeyPath = dialog.FileName;
+        }
+    }
+
+    private void TryAutoDetectSshSettings()
+    {
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(OutlineSshKeyPath)) return;
+
+            var sshDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".ssh");
+            if (Directory.Exists(sshDir))
+            {
+                var keyFile = Directory.GetFiles(sshDir, "*.pem")
+                    .OrderByDescending(f => File.GetLastWriteTime(f))
+                    .FirstOrDefault() ??
+                    Directory.GetFiles(sshDir, "id_rsa").FirstOrDefault();
+                
+                if (keyFile != null)
+                {
+                    OutlineSshKeyPath = keyFile;
+                }
+            }
+        }
+        catch { /* ignored */ }
+    }
+
+    [RelayCommand]
+    private async Task ProvisionRealityServerAsync()
+    {
+        try
+        {
+            await RunOnUiAsync(() =>
+            {
+                IsLoading = true;
+                OutlineProvisionStatus = "VLESS REALITY 서버 자동 구축 중 (SSH)...";
+            }).ConfigureAwait(false);
+
+            var result = await _realityServerBootstrapService.BootstrapAsync(
+                OutlineSshHost,
+                OutlineSshUser,
+                OutlineSshKeyPath).ConfigureAwait(false);
+
+            await RunOnUiAsync(() =>
+            {
+                VlessRealityServer = result.Server;
+                VlessRealityPort = result.Port;
+                VlessRealityUuid = result.Uuid;
+                VlessRealityPublicKey = result.PublicKey;
+                VlessRealityShortId = result.ShortId;
+                VlessRealityServerName = result.ServerName;
+                
+                OutlineProvisionStatus = "VLESS REALITY 서버 구축 완료";
+                ConnectionDetails = "원격 서버에 sing-box 설치 및 설정을 완료했습니다. 이제 연결할 수 있습니다.";
+            }).ConfigureAwait(false);
+            
+            PersistChinaModeSettings();
+        }
+        catch (Exception ex)
+        {
+            await RunOnUiAsync(() =>
+            {
+                OutlineProvisionStatus = $"서버 구축 실패: {ex.Message}";
+                ConnectionDetails = "SSH 정보와 서버 네트워크 상태를 확인해 주세요.";
             }).ConfigureAwait(false);
         }
         finally
@@ -525,6 +708,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
                     ConnectedServerIp = "-";
                     ChinaModeState = IsChinaModeSelected ? "엔진 대기" : ChinaModeState;
                 }).ConfigureAwait(false);
+                UpdateKillSwitchState();
                 await RefreshIpInfoAsync().ConfigureAwait(false);
                 return;
             }
@@ -554,6 +738,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 ChinaModeState = IsChinaModeSelected ? "엔진 실행 중" : ChinaModeState;
             }).ConfigureAwait(false);
 
+            UpdateKillSwitchState();
             await RefreshIpInfoAsync().ConfigureAwait(false);
         }
         catch (Exception ex)
@@ -584,6 +769,44 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     private static Task RunOnUiAsync(Action action) =>
         Application.Current.Dispatcher.InvokeAsync(action).Task;
+
+    private void OnStatsTimerTick(object? sender, EventArgs e)
+    {
+        if (!IsConnected)
+        {
+            DownloadSpeedText = "0 B/s";
+            UploadSpeedText = "0 B/s";
+            ConnectionDurationText = "00:00:00";
+            return;
+        }
+
+        try
+        {
+            var stats = _vpnService.GetStatistics();
+            DownloadSpeedText = FormatSize(stats.DownloadSpeed) + "/s";
+            UploadSpeedText = FormatSize(stats.UploadSpeed) + "/s";
+            TotalReceivedText = FormatSize(stats.BytesReceived);
+            TotalSentText = FormatSize(stats.BytesSent);
+            ConnectionDurationText = stats.Duration.ToString(@"hh\:mm\:ss");
+        }
+        catch
+        {
+            // Ignore
+        }
+    }
+
+    private static string FormatSize(long bytes)
+    {
+        string[] units = { "B", "KB", "MB", "GB", "TB" };
+        double size = bytes;
+        int unitIndex = 0;
+        while (size >= 1024 && unitIndex < units.Length - 1)
+        {
+            size /= 1024;
+            unitIndex++;
+        }
+        return $"{size:F2} {units[unitIndex]}";
+    }
 
     private void OnVpnStatusChanged(string message)
     {
@@ -627,6 +850,30 @@ public partial class MainViewModel : ObservableObject, IDisposable
         StopExternalClientMonitor();
         UpdateChinaModeHint();
         _ = RefreshIpInfoAsync();
+    }
+
+    partial void OnIsKillSwitchEnabledChanged(bool value)
+    {
+        UpdateKillSwitchState();
+        PersistChinaModeSettings(); // Kill Switch 설정도 함께 저장
+    }
+
+    private void UpdateKillSwitchState()
+    {
+        if (IsKillSwitchEnabled && IsConnected)
+        {
+            var serverIp = ConnectedServerIp;
+            if (string.IsNullOrEmpty(serverIp) || serverIp == "-") 
+            {
+                serverIp = SelectedServer?.IP;
+            }
+            
+            _ = _firewallService.EnableKillSwitchAsync(serverIp ?? string.Empty);
+        }
+        else
+        {
+            _firewallService.DisableKillSwitch();
+        }
     }
 
     partial void OnSelectedChinaModeProfileChanged(ChinaModeProfileOption? value)
@@ -931,36 +1178,48 @@ public partial class MainViewModel : ObservableObject, IDisposable
         }).ConfigureAwait(false);
     }
 
-    private async Task RestoreChinaModeSettingsAsync()
+    private async Task RestoreAppSettingsAsync()
     {
-        var library = await _localSettingsService.LoadChinaModeProfileLibraryAsync().ConfigureAwait(false);
-
-        await RunOnUiAsync(() =>
+        _isRestoringSettings = true;
+        try
         {
-            SavedChinaProfiles.Clear();
-            foreach (var profile in library.Profiles)
+            var library = await _localSettingsService.LoadChinaModeProfileLibraryAsync().ConfigureAwait(false);
+            var isKillSwitch = await _localSettingsService.LoadKillSwitchStatusAsync().ConfigureAwait(false);
+            var customServers = await _localSettingsService.LoadCustomServersAsync().ConfigureAwait(false);
+
+            await RunOnUiAsync(() =>
             {
-                SavedChinaProfiles.Add(profile);
+                IsKillSwitchEnabled = isKillSwitch;
+                
+                CustomServers.Clear();
+                foreach (var s in customServers) CustomServers.Add(s);
+                
+                SavedChinaProfiles.Clear();
+                foreach (var profile in library.Profiles)
+                {
+                    SavedChinaProfiles.Add(profile);
+                }
+
+                SelectedSavedChinaProfile =
+                    SavedChinaProfiles.FirstOrDefault(p => p.Id == library.SelectedSavedProfileId) ??
+                    SavedChinaProfiles.FirstOrDefault();
+            }).ConfigureAwait(false);
+
+            if (SelectedSavedChinaProfile != null)
+            {
+                ChinaModeProfileName = SelectedSavedChinaProfile.Name;
+                await ApplyChinaModeSettingsAsync(SelectedSavedChinaProfile.Settings).ConfigureAwait(false);
             }
-
-            SelectedSavedChinaProfile =
-                SavedChinaProfiles.FirstOrDefault(profile => profile.Id == library.SelectedSavedProfileId) ??
-                SavedChinaProfiles.FirstOrDefault();
-        }).ConfigureAwait(false);
-
-        if (SelectedSavedChinaProfile != null)
+        }
+        finally
         {
-            ChinaModeProfileName = SelectedSavedChinaProfile.Name;
-            await ApplyChinaModeSettingsAsync(SelectedSavedChinaProfile.Settings).ConfigureAwait(false);
+            _isRestoringSettings = false;
         }
     }
 
     private void PersistChinaModeSettings()
     {
-        if (_isRestoringSettings)
-        {
-            return;
-        }
+        if (_isRestoringSettings) return;
 
         SaveCurrentChinaProfileSlot();
 
@@ -970,8 +1229,14 @@ public partial class MainViewModel : ObservableObject, IDisposable
             Profiles = SavedChinaProfiles.ToList()
         };
 
-        _ = _localSettingsService.SaveChinaModeProfileLibraryAsync(library);
+        _ = _localSettingsService.SaveAppSettingsAsync(
+            SelectedSavedChinaProfile?.Settings ?? new ChinaModeSettings(),
+            library,
+            IsKillSwitchEnabled,
+            CustomServers.ToList());
     }
+
+    private void PersistAppSettings() => PersistChinaModeSettings();
 
     private ChinaModeSettings CreateChinaModeSettings() =>
         new()
@@ -1096,5 +1361,69 @@ public partial class MainViewModel : ObservableObject, IDisposable
         }
 
         return $"{baseName} {suffix}";
+    }
+
+    private void DiscoverKnownSshHosts()
+    {
+        try
+        {
+            var hosts = SshConfigParserService.ParseKnownHosts();
+            foreach (var h in hosts) KnownSshHosts.Add(h);
+        }
+        catch { /* ignored */ }
+    }
+
+    partial void OnSelectedKnownSshHostChanged(SshConfigParserService.SshHostInfo? value)
+    {
+        if (value == null) return;
+        
+        OutlineSshHost = value.HostName;
+        OutlineSshUser = value.User;
+        if (!string.IsNullOrEmpty(value.IdentityFile))
+        {
+            OutlineSshKeyPath = value.IdentityFile;
+        }
+        PersistChinaModeSettings();
+    }
+
+    [RelayCommand]
+    private void AddCustomServer()
+    {
+        if (string.IsNullOrWhiteSpace(NewCustomServerIp))
+        {
+            MessageBox.Show("서버 IP를 입력해 주세요.", "알림");
+            return;
+        }
+
+        var name = string.IsNullOrWhiteSpace(NewCustomServerName) ? "Custom Server" : NewCustomServerName;
+        var newServer = new VpnServer
+        {
+            HostName = name,
+            IP = NewCustomServerIp,
+            CountryShort = "MY",
+            CountryLong = "Manually Added",
+            Score = 1000000, 
+            Ping = 0
+        };
+
+        CustomServers.Add(newServer);
+        Servers.Insert(0, newServer); 
+        
+        NewCustomServerName = string.Empty;
+        NewCustomServerIp = string.Empty;
+        
+        PersistAppSettings();
+        MessageBox.Show($"'{name}' 서버가 라이브러리에 추가되었습니다.", "완료");
+    }
+
+    [RelayCommand]
+    private void RemoveCustomServer(VpnServer? server)
+    {
+        if (server == null) return;
+        if (!CustomServers.Contains(server)) return;
+
+        CustomServers.Remove(server);
+        Servers.Remove(server);
+        PersistAppSettings();
     }
 }

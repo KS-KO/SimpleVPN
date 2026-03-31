@@ -1,5 +1,7 @@
 using System;
 using System.Diagnostics;
+using System.Linq;
+using System.Net.NetworkInformation;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -19,6 +21,11 @@ public sealed class WindowsBuiltInVpnService : IVpnService
     private const string Password = "vpn";
     private readonly SemaphoreSlim _gate = new(1, 1);
     private bool _disposed;
+    private DateTime? _startTime;
+    private long _lastReceived;
+    private long _lastSent;
+    private long _currentDownloadSpeed;
+    private long _currentUploadSpeed;
 
     public bool IsConnected { get; private set; }
     public event Action<string>? StatusChanged;
@@ -51,6 +58,9 @@ public sealed class WindowsBuiltInVpnService : IVpnService
             }
 
             IsConnected = true;
+            _startTime = DateTime.Now;
+            _lastReceived = 0;
+            _lastSent = 0;
             PublishStatus("Windows 기본 VPN 연결 완료");
         }
         finally
@@ -76,6 +86,7 @@ public sealed class WindowsBuiltInVpnService : IVpnService
                 disconnectResult.Output.Contains("명령을 찾을 수 없습니다", StringComparison.OrdinalIgnoreCase))
             {
                 IsConnected = false;
+                _startTime = null;
                 PublishStatus("Windows 기본 VPN 연결 해제 완료");
                 return;
             }
@@ -86,6 +97,51 @@ public sealed class WindowsBuiltInVpnService : IVpnService
         {
             _gate.Release();
         }
+    }
+
+    public VpnStatistics GetStatistics()
+    {
+        if (!IsConnected || _startTime == null)
+        {
+            return new VpnStatistics { Duration = TimeSpan.Zero };
+        }
+
+        try
+        {
+            var interfaceStats = NetworkInterface.GetAllNetworkInterfaces()
+                .FirstOrDefault(i => i.Name.Contains(ConnectionName, StringComparison.OrdinalIgnoreCase))
+                ?.GetIPStatistics();
+
+            if (interfaceStats != null)
+            {
+                var currentReceived = interfaceStats.BytesReceived;
+                var currentSent = interfaceStats.BytesSent;
+
+                if (_lastReceived > 0)
+                {
+                    _currentDownloadSpeed = currentReceived - _lastReceived;
+                    _currentUploadSpeed = currentSent - _lastSent;
+                }
+
+                _lastReceived = currentReceived;
+                _lastSent = currentSent;
+
+                return new VpnStatistics
+                {
+                    BytesReceived = currentReceived,
+                    BytesSent = currentSent,
+                    DownloadSpeed = _currentDownloadSpeed,
+                    UploadSpeed = _currentUploadSpeed,
+                    Duration = DateTime.Now - _startTime.Value
+                };
+            }
+        }
+        catch
+        {
+            // 통계 조회 실패 시 기본값 반환
+        }
+
+        return new VpnStatistics { Duration = DateTime.Now - _startTime.Value };
     }
 
     public void Dispose()

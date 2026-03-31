@@ -13,6 +13,7 @@ public interface IVpnService : IDisposable
     event Action<string>? StatusChanged;
     Task ConnectAsync(VpnServer server);
     Task DisconnectAsync();
+    VpnStatistics GetStatistics();
 }
 
 /// <summary>
@@ -24,6 +25,10 @@ public class MockVpnService : IVpnService
     private bool _disposed = false;
     // Rule: 하드웨어 또는 네트워크 리소스 점유 가상
     private System.Net.Sockets.Socket? _fakeSocket;
+    private DateTime? _startTime;
+    private long _totalReceived;
+    private long _totalSent;
+    private readonly Random _random = new();
 
     public bool IsConnected { get; private set; }
     public event Action<string>? StatusChanged;
@@ -42,6 +47,9 @@ public class MockVpnService : IVpnService
         StatusChanged?.Invoke("연결 준비 중...");
         await Task.Delay(2000).ConfigureAwait(false);
         IsConnected = true;
+        _startTime = DateTime.Now;
+        _totalReceived = 0;
+        _totalSent = 0;
         StatusChanged?.Invoke("연결 완료");
     }
 
@@ -53,7 +61,32 @@ public class MockVpnService : IVpnService
         StatusChanged?.Invoke("연결 해제 중...");
         await Task.Delay(1000).ConfigureAwait(false);
         IsConnected = false;
+        _startTime = null;
         StatusChanged?.Invoke("연결 해제 완료");
+    }
+
+    public VpnStatistics GetStatistics()
+    {
+        if (!IsConnected || _startTime == null)
+        {
+            return new VpnStatistics { Duration = TimeSpan.Zero };
+        }
+
+        // 가상 트래픽 발생
+        var downlink = _random.Next(1024, 1024 * 1024 * 5); // 1KB~5MB/s
+        var uplink = _random.Next(512, 1024 * 1024);     // 512B~1MB/s
+        
+        _totalReceived += downlink;
+        _totalSent += uplink;
+
+        return new VpnStatistics
+        {
+            BytesReceived = _totalReceived,
+            BytesSent = _totalSent,
+            DownloadSpeed = downlink,
+            UploadSpeed = uplink,
+            Duration = DateTime.Now - _startTime.Value
+        };
     }
 
     // Rule: IDisposable 인터페이스 구현

@@ -36,8 +36,8 @@ public sealed class LocalSettingsService
             }
 
             var json = await File.ReadAllTextAsync(_settingsPath).ConfigureAwait(false);
-            var settings = JsonSerializer.Deserialize<AppSettingsEnvelope>(json);
-            return settings?.ChinaMode ?? new ChinaModeSettings();
+            var envelope = JsonSerializer.Deserialize<AppSettingsEnvelope>(json);
+            return envelope?.ChinaMode ?? new ChinaModeSettings();
         }
         catch
         {
@@ -85,6 +85,47 @@ public sealed class LocalSettingsService
         {
             return CreateDefaultLibrary();
         }
+    }
+
+    public async Task<bool> LoadKillSwitchStatusAsync()
+    {
+        try
+        {
+            if (!File.Exists(_settingsPath)) return false;
+            var json = await File.ReadAllTextAsync(_settingsPath).ConfigureAwait(false);
+            var envelope = JsonSerializer.Deserialize<AppSettingsEnvelope>(json);
+            return envelope?.IsKillSwitchEnabled ?? false;
+        }
+        catch { return false; }
+    }
+
+    public async Task<System.Collections.Generic.List<VpnServer>> LoadCustomServersAsync()
+    {
+        try
+        {
+            if (!File.Exists(_settingsPath)) return new();
+            var json = await File.ReadAllTextAsync(_settingsPath).ConfigureAwait(false);
+            var envelope = JsonSerializer.Deserialize<AppSettingsEnvelope>(json);
+            return envelope?.CustomServers ?? new();
+        }
+        catch { return new(); }
+    }
+
+    public async Task SaveAppSettingsAsync(ChinaModeSettings chinaSettings, ChinaModeProfileLibrary library, bool isKillSwitchEnabled, System.Collections.Generic.List<VpnServer> customServers)
+    {
+        var directory = Path.GetDirectoryName(_settingsPath);
+        if (!string.IsNullOrWhiteSpace(directory)) Directory.CreateDirectory(directory);
+
+        var payload = new AppSettingsEnvelope
+        {
+            IsKillSwitchEnabled = isKillSwitchEnabled,
+            ChinaMode = chinaSettings,
+            ChinaModeLibrary = library,
+            CustomServers = customServers
+        };
+
+        var json = JsonSerializer.Serialize(payload, JsonOptions);
+        await File.WriteAllTextAsync(_settingsPath, json).ConfigureAwait(false);
     }
 
     public async Task SaveChinaModeSettingsAsync(ChinaModeSettings settings)
@@ -143,8 +184,10 @@ public sealed class LocalSettingsService
 
     private sealed class AppSettingsEnvelope
     {
+        public bool IsKillSwitchEnabled { get; init; }
         public ChinaModeSettings ChinaMode { get; init; } = new();
         public ChinaModeProfileLibrary ChinaModeLibrary { get; init; } = new();
+        public System.Collections.Generic.List<VpnServer> CustomServers { get; init; } = new();
     }
 
     private static ChinaModeProfileLibrary CreateDefaultLibrary() =>

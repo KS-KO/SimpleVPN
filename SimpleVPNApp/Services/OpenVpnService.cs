@@ -4,6 +4,7 @@ using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using SimpleVPNApp.Helpers;
 using SimpleVPNApp.Models;
 
 namespace SimpleVPNApp.Services;
@@ -25,6 +26,9 @@ public sealed class OpenVpnService : IVpnService
     private Process? _ownedGuiProcess;
     private bool _ownsConnection;
     private bool _disposed;
+    private DateTime? _startTime;
+    private long _lastReceived;
+    private long _lastSent;
 
     public bool IsConnected { get; private set; }
     public event Action<string>? StatusChanged;
@@ -90,6 +94,9 @@ public sealed class OpenVpnService : IVpnService
 
             IsConnected = true;
             _ownsConnection = true;
+            _startTime = DateTime.Now;
+            _lastReceived = 0;
+            _lastSent = 0;
             PublishStatus("OpenVPN 터널 연결 완료");
         }
         finally
@@ -109,6 +116,7 @@ public sealed class OpenVpnService : IVpnService
             {
                 IsConnected = false;
                 _ownsConnection = false;
+                _startTime = null;
                 return;
             }
 
@@ -130,12 +138,28 @@ public sealed class OpenVpnService : IVpnService
 
             IsConnected = false;
             _ownsConnection = false;
+            _startTime = null;
             PublishStatus("OpenVPN 연결 해제 완료");
         }
         finally
         {
             _gate.Release();
         }
+    }
+
+    public VpnStatistics GetStatistics()
+    {
+        // OpenVPN은 TAP 어댑터 또는 Wintun 어댑터를 사용함
+        var stats = StatisticsHelper.GetInterfaceStatistics("TAP", _startTime, _lastReceived, _lastSent);
+        if (stats.BytesReceived == 0)
+        {
+            stats = StatisticsHelper.GetInterfaceStatistics("Wintun", _startTime, _lastReceived, _lastSent);
+        }
+        
+        _lastReceived = stats.BytesReceived;
+        _lastSent = stats.BytesSent;
+
+        return stats;
     }
 
     public void Dispose()

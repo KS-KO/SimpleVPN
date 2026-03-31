@@ -24,8 +24,12 @@ public sealed class ChinaOptimizedVpnService : IVpnService
     private readonly string _runtimeDirectory;
     private readonly string _configPath;
     private readonly string _logPath;
+    private readonly EngineProvisioningService _provisioningService = new();
     private Process? _engineProcess;
     private bool _disposed;
+    private DateTime? _startTime;
+    private long _lastReceived;
+    private long _lastSent;
 
     public ChinaOptimizedVpnService(string connectionPayload)
     {
@@ -62,9 +66,16 @@ public sealed class ChinaOptimizedVpnService : IVpnService
             }
 
             PublishStatus("China Mode 설정 확인 중...");
-
             var profile = ParseProfile(_connectionPayload);
+
+            PublishStatus("China Mode 엔진 점검 중...");
+            await _provisioningService.EnsureEngineReadyAsync(msg => PublishStatus(msg)).ConfigureAwait(false);
             var enginePath = ResolveEnginePath();
+
+            if (!File.Exists(enginePath))
+            {
+                throw new FileNotFoundException("China Mode 엔진을 설치하지 못했습니다. 네트워크 연결을 확인해 주세요.");
+            }
 
             Directory.CreateDirectory(_runtimeDirectory);
             await File.WriteAllTextAsync(_configPath, BuildConfig(profile), Encoding.UTF8).ConfigureAwait(false);
@@ -90,6 +101,9 @@ public sealed class ChinaOptimizedVpnService : IVpnService
             }
 
             IsConnected = true;
+            _startTime = DateTime.Now;
+            _lastReceived = 0;
+            _lastSent = 0;
             PublishStatus("China Mode 연결 엔진이 시작되었습니다. 시스템 프록시 적용과 공인 IP 변화를 확인하세요.");
         }
         finally
@@ -106,12 +120,20 @@ public sealed class ChinaOptimizedVpnService : IVpnService
             ThrowIfDisposed();
             await StopEngineAsync().ConfigureAwait(false);
             IsConnected = false;
+            _startTime = null;
             PublishStatus("China Mode 연결 해제 완료");
         }
         finally
         {
             _gate.Release();
         }
+    }
+
+    public VpnStatistics GetStatistics()
+    {
+        // China Mode는 시스템 프록시를 사용하므로 인터페이스 기반 측정이 직접적으로는 어려움
+        // 프로세스 리소스 사용량을 기반으로 하거나, 이번 주기에는 시간을 우선적으로 제공함
+        return Helpers.StatisticsHelper.GetProcessStatistics(_engineProcess, _startTime, _lastReceived, _lastSent);
     }
 
     public void Dispose()
@@ -257,25 +279,7 @@ public sealed class ChinaOptimizedVpnService : IVpnService
 
     private string ResolveEnginePath()
     {
-        var appBase = AppContext.BaseDirectory;
-        var candidates = new[]
-        {
-            Path.Combine(appBase, "Runtime", EngineFolderName, "sing-box.exe"),
-            Path.Combine(appBase, EngineFolderName, "sing-box.exe"),
-            Path.Combine(Directory.GetParent(appBase)?.FullName ?? appBase, "Runtime", EngineFolderName, "sing-box.exe"),
-            Path.Combine(Directory.GetParent(appBase)?.Parent?.FullName ?? appBase, "Runtime", EngineFolderName, "sing-box.exe")
-        };
-
-        foreach (var candidate in candidates)
-        {
-            if (File.Exists(candidate))
-            {
-                return candidate;
-            }
-        }
-
-        throw new FileNotFoundException(
-            "portable China Mode 엔진을 찾지 못했습니다. `SimpleVPNApp\\Runtime\\sing-box\\sing-box.exe`와 필요한 DLL을 배치해 주세요.");
+        return _provisioningService.GetEnginePath();
     }
 
     private string BuildConfig(ChinaModeConnectionProfile profile)
