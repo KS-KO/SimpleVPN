@@ -54,6 +54,28 @@
                         </Border>
                     </StackPanel>
                 </Border>
+                <Border Margin="0,18,0,0" Padding="20" Background="#181B27" BorderBrush="#2D3144" BorderThickness="1" CornerRadius="20">
+                    <StackPanel>
+                        <TextBlock Text="VLESS (REALITY) 사용 가이드" FontSize="20" FontWeight="Bold"/>
+                        <TextBlock Text="1. VLESS는 차세대 보안 프로토콜로, 강력한 익명성을 제공합니다." Margin="0,14,0,0" FontSize="14"/>
+                        <TextBlock Text="2. 필수 정보: 서버 주소, 포트, 사용자 UUID, 그리고 REALITY 통신을 위한 Public Key가 필요합니다." Margin="0,8,0,0" FontSize="14"/>
+                        <TextBlock Text="3. SNI (Server Name): 실제 웹사이트처럼 위장하기 위한 도메인 주소(예: google.com)를 입력합니다." Margin="0,8,0,0" FontSize="14"/>
+                        <TextBlock Text="4. SimpleVPN은 내부 엔진을 통해 별도 앱 설치 없이도 VLESS 연결을 시도합니다." Margin="0,8,0,0" FontSize="14"/>
+                        <Border Margin="0,14,0,0" Padding="12" Background="#101524" BorderBrush="#32405D" BorderThickness="1" CornerRadius="12">
+                            <TextBlock Text="참고: VLESS REALITY는 최신 기술이므로 서버 설정 시 호환되는 서버 엔진 버전을 확인해야 합니다." Foreground="#7DE7A0" TextWrapping="Wrap" FontSize="13"/>
+                        </Border>
+                    </StackPanel>
+                </Border>
+
+                <Border Margin="0,18,0,0,24" Padding="20" Background="#181B27" BorderBrush="#2D3144" BorderThickness="1" CornerRadius="20">
+                    <StackPanel>
+                        <TextBlock Text="Trojan (TLS) 사용 가이드" FontSize="20" FontWeight="Bold"/>
+                        <TextBlock Text="1. Trojan은 일반적인 HTTPS 웹 트래픽으로 위장하여 필터링을 우회합니다." Margin="0,14,0,0" FontSize="14"/>
+                        <TextBlock Text="2. 필수 정보: 서버 주소(도메인 권장), 포트, 그리고 연결을 위한 비밀번호가 필요합니다." Margin="0,8,0,0" FontSize="14"/>
+                        <TextBlock Text="3. TLS 보안: 서버의 실제 도메인을 SNI 필드에 정확히 입력해야 연결이 성립됩니다." Margin="0,8,0,0" FontSize="14"/>
+                        <TextBlock Text="4. 핑(Ping) 테스트를 통해 서버가 살아있는지 먼저 확인한 후 연결을 시도하세요." Margin="0,8,0,0" FontSize="14"/>
+                    </StackPanel>
+                </Border>
             </StackPanel>
         </ScrollViewer>
     </Grid>
