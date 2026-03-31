@@ -67,7 +67,7 @@
                     </StackPanel>
                 </Border>
 
-                <Border Margin="0,18,0,0,24" Padding="20" Background="#181B27" BorderBrush="#2D3144" BorderThickness="1" CornerRadius="20">
+                <Border Margin="0,18,0,24" Padding="20" Background="#181B27" BorderBrush="#2D3144" BorderThickness="1" CornerRadius="20">
                     <StackPanel>
                         <TextBlock Text="Trojan (TLS) 사용 가이드" FontSize="20" FontWeight="Bold"/>
                         <TextBlock Text="1. Trojan은 일반적인 HTTPS 웹 트래픽으로 위장하여 필터링을 우회합니다." Margin="0,14,0,0" FontSize="14"/>

@@ -76,8 +76,9 @@
 - **중국 환경 대응 경로 추가**: 공개 VPN Gate 서버가 아닌 portable sing-box 엔진 기반 `Outline`, `VLESS REALITY`, `Trojan TLS` 연결 경로와 안내 메시지를 앱에 반영함.
 
 ## 7. 실제 검증 결과
-- **Release 빌드 및 실행 검증 완료**: `dotnet clean -c Release`, `dotnet build -c Release` 후 생성된 `SimpleVPNApp.exe`가 정상적으로 실행됨을 확인함.
-- **클린/빌드/실행 검증 완료**: `dotnet clean`, `dotnet build`, `dotnet run` 흐름이 정상 동작함.
+- **Release 빌드 및 실행 검증 완료 (2026-03-30)**: `dotnet clean -c Release`, `dotnet build -c Release` 후 생성된 `SimpleVPNApp.exe`가 정상적으로 실행됨을 확인함.
+- **클린/빌드/실행 검증 완료 (2026-03-30)**: `dotnet clean`, `dotnet build`, `dotnet run` 흐름이 정상 동작함.
+- **최신 빌드 및 실행 검증 완료 (2026-03-31)**: .NET 9.0 (net9.0-windows) 환경으로의 전환 및 `GuideWindow.xaml`의 Margin 형식 오류를 수정하여 전체 솔루션 클린, 빌드 및 실행 무결성을 재검증함. (SimpleVPNApp.exe 정상 실행 확인)
 - **실제 VPN 연결 검증 완료**: 일본 VPN Gate 서버(`public-vpn-189`)를 대상으로 Windows 기본 VPN 연결이 성공함.
 - **OpenVPN 옵션 동작 검증 완료**: OpenVPN 방식 선택 시 OpenVPN GUI 기반 연결 경로가 앱 내 서비스로 복원되었고, 설치 여부에 따라 적절한 안내 또는 연결이 가능함.
 - **China Mode 입력 검증 완료**: `Outline(ss://)`, `VLESS REALITY`, `Trojan TLS` 프로필별 필수 입력을 검사하고 잘못된 값에 대해 안내 메시지를 표시함.
