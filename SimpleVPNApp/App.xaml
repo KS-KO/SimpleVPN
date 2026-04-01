@@ -244,10 +244,9 @@
                         <Border Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="14"
+                                CornerRadius="12"
                                 Padding="{TemplateBinding Padding}">
-                            <StackPanel IsItemsHost="True"
-                                        KeyboardNavigation.DirectionalNavigation="Cycle"/>
+                            <ItemsPresenter SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"/>
                         </Border>
                     </ControlTemplate>
                 </Setter.Value>
