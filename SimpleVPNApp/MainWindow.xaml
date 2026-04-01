@@ -19,7 +19,6 @@
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="44" CornerRadius="34" GlassFrameThickness="0" ResizeBorderThickness="8" UseAeroCaptionButtons="False"/>
     </shell:WindowChrome.WindowChrome>
-    <Window.DataContext><vm:MainViewModel /></Window.DataContext>
     <Grid>
         <tb:TaskbarIcon x:Name="MyNotifyIcon" ToolTipText="{Binding TrayToolTipText}" DoubleClickCommand="{Binding ShowWindowCommand}">
             <tb:TaskbarIcon.IconSource>

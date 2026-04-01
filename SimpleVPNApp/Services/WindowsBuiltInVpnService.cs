@@ -87,7 +87,11 @@ public sealed class WindowsBuiltInVpnService : IVpnService
             {
                 IsConnected = false;
                 _startTime = null;
-                PublishStatus("Windows 기본 VPN 연결 해제 완료");
+                
+                // VPN 프로필 완전 삭제 (Clean Exit)
+                await RemoveVpnProfileAsync().ConfigureAwait(false);
+                
+                PublishStatus("Windows 기본 VPN 연결 해제 및 프로필 정리 완료");
                 return;
             }
 
@@ -248,6 +252,24 @@ Add-VpnConnection -Name $name -ServerAddress $server -TunnelType L2tp -L2tpPsk $
         }
 
         return fallback;
+    }
+
+    private async Task RemoveVpnProfileAsync()
+    {
+        var escapedName = EscapeSingleQuotedPowerShellString(ConnectionName);
+        var script = $@"
+try {{
+    $existing = Get-VpnConnection -Name '{escapedName}' -ErrorAction SilentlyContinue
+    if ($existing) {{
+        Remove-VpnConnection -Name '{escapedName}' -Force -ErrorAction SilentlyContinue | Out-Null
+    }}
+}}
+catch {{
+}}
+";
+        await RunProcessAsync(
+            "powershell.exe",
+            $"-NoProfile -EncodedCommand {EncodePowerShellScript(script)}").ConfigureAwait(false);
     }
 
     private void PublishStatus(string message)

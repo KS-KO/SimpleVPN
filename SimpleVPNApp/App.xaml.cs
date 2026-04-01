@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows;
+using SimpleVPNApp.ViewModels;
 
 namespace SimpleVPNApp;
 
@@ -15,6 +16,8 @@ public partial class App : Application
     private const int SW_RESTORE = 9;
     private Mutex? _singleInstanceMutex;
     private bool _ownsMutex;
+
+    private MainViewModel? _mainViewModel;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -31,12 +34,20 @@ public partial class App : Application
 
         base.OnStartup(e);
 
-        MainWindow = new MainWindow();
+        _mainViewModel = new MainViewModel();
+        MainWindow = new MainWindow { DataContext = _mainViewModel };
         MainWindow.Show();
     }
 
     protected override void OnExit(ExitEventArgs e)
     {
+        // Rule: 프로그램 종료 시 모든 리소스 완전 해제
+        try
+        {
+            _mainViewModel?.Dispose();
+        }
+        catch { }
+
         if (_ownsMutex)
         {
             _singleInstanceMutex?.ReleaseMutex();

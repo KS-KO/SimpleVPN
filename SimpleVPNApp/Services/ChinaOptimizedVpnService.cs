@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Runtime.InteropServices;
 using SimpleVPNApp.Models;
 
 namespace SimpleVPNApp.Services;
@@ -127,6 +128,8 @@ public sealed class ChinaOptimizedVpnService : IVpnService
         {
             ThrowIfDisposed();
             await StopEngineAsync().ConfigureAwait(false);
+            RemoveFirewallRule();
+            ResetProxySettings();
             IsConnected = false;
             _startTime = null;
             PublishStatus("China Mode 연결 해제 완료");
@@ -389,13 +392,56 @@ public sealed class ChinaOptimizedVpnService : IVpnService
     {
         try
         {
+            RemoveFirewallRule();
             const string ruleName = "SimpleVPN - China Mode Engine (sing-box)";
-            RunNetsh($"advfirewall firewall delete rule name=\"{ruleName}\"");
             RunNetsh($"advfirewall firewall add rule name=\"{ruleName}\" dir=in action=allow program=\"{enginePath}\" enable=yes");
             RunNetsh($"advfirewall firewall add rule name=\"{ruleName}\" dir=out action=allow program=\"{enginePath}\" enable=yes");
             PublishStatus("방화벽 허용 규칙을 적용했습니다.");
         }
         catch (Exception ex) { PublishStatus($"방화벽 설정 경고: {ex.Message}"); }
+    }
+
+    private void RemoveFirewallRule()
+    {
+        try
+        {
+            const string ruleName = "SimpleVPN - China Mode Engine (sing-box)";
+            RunNetsh($"advfirewall firewall delete rule name=\"{ruleName}\"");
+        }
+        catch { }
+    }
+
+    [DllImport("wininet.dll", SetLastError = true, CharSet = CharSet.Auto)]
+    private static extern bool InternetSetOption(IntPtr hInternet, int dwOption, IntPtr lpBuffer, int dwBufferLength);
+
+    private const int INTERNET_OPTION_SETTINGS_CHANGED = 39;
+    private const int INTERNET_OPTION_REFRESH = 37;
+
+    private void ResetProxySettings()
+    {
+        try
+        {
+            // sing-box가 비정상 종료되거나 Kill될 경우를 대비해 시스템 프록시를 명시적으로 해제함
+            using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Internet Settings", true);
+            if (key != null)
+            {
+                key.SetValue("ProxyEnable", 0, Microsoft.Win32.RegistryValueKind.DWord);
+                
+                // 프록시 서버 및 예외 설정도 초기화 (선택 사항이지만 안전을 위해)
+                try { key.DeleteValue("ProxyServer", false); } catch { }
+                try { key.DeleteValue("ProxyOverride", false); } catch { }
+                
+                // 변경 사항을 즉시 반영하기 위해 Win32 API 호출
+                RefreshSystemProxy();
+            }
+        }
+        catch { }
+    }
+
+    private static void RefreshSystemProxy()
+    {
+        InternetSetOption(IntPtr.Zero, INTERNET_OPTION_SETTINGS_CHANGED, IntPtr.Zero, 0);
+        InternetSetOption(IntPtr.Zero, INTERNET_OPTION_REFRESH, IntPtr.Zero, 0);
     }
 
     private static void RunNetsh(string arguments)

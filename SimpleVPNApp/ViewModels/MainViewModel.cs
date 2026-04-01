@@ -762,7 +762,20 @@ public partial class MainViewModel : ObservableObject, IDisposable
     public void Dispose()
     {
         _vpnService.StatusChanged -= OnVpnStatusChanged;
-        _vpnService.Dispose();
+        
+        // Rule: 프로그램 종료시 모든 설정 및 리소스 해제
+        try
+        {
+            _vpnService.Dispose();
+        }
+        catch { }
+
+        try 
+        {
+            _firewallService.DisableKillSwitch();
+        } 
+        catch { }
+
         StopExternalClientMonitor();
         _vpnGateService.Dispose();
     }
