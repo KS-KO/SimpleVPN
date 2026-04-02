@@ -3,7 +3,9 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows;
+using SimpleVPNApp.Services;
 using SimpleVPNApp.ViewModels;
+using Velopack;
 
 namespace SimpleVPNApp;
 
@@ -18,9 +20,12 @@ public partial class App : Application
     private bool _ownsMutex;
 
     private MainViewModel? _mainViewModel;
+    private readonly GitHubUpdateService _gitHubUpdateService = new();
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        VelopackApp.Build().Run();
+
         var createdNew = false;
         _singleInstanceMutex = new Mutex(true, MutexName, out createdNew);
         _ownsMutex = createdNew;
@@ -37,6 +42,7 @@ public partial class App : Application
         _mainViewModel = new MainViewModel();
         MainWindow = new MainWindow { DataContext = _mainViewModel };
         MainWindow.Show();
+        _ = _gitHubUpdateService.CheckForUpdatesOnStartupAsync();
     }
 
     protected override void OnExit(ExitEventArgs e)

@@ -3,3 +3,6 @@
 /SimpleVPNApp/bin
 /SimpleVPNApp/obj
 /bin
+/\.dotnet-home
+/publish
+/Releases

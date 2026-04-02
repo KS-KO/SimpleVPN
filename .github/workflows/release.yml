@@ -1,0 +1,84 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+env:
+  DOTNET_VERSION: "9.0.x"
+  VELOPACK_VERSION: "0.0.1298"
+  APP_ID: "KSKO.SimpleVPN"
+  APP_TITLE: "SimpleVPN"
+  APP_EXE: "SimpleVPNApp.exe"
+
+jobs:
+  package:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Resolve version
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart("v")
+          "APP_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "ASSEMBLY_VERSION=$version.0" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Restore
+        run: dotnet restore SimpleVPNApp/SimpleVPNApp.csproj
+
+      - name: Publish app
+        run: >
+          dotnet publish SimpleVPNApp/SimpleVPNApp.csproj
+          -c Release
+          -r win-x64
+          --self-contained true
+          -o publish
+          /p:Version=${{ env.APP_VERSION }}
+          /p:AssemblyVersion=${{ env.ASSEMBLY_VERSION }}
+          /p:FileVersion=${{ env.ASSEMBLY_VERSION }}
+          /p:InformationalVersion=${{ env.APP_VERSION }}
+
+      - name: Warm previous releases
+        shell: pwsh
+        run: |
+          try {
+            dnx vpk --version $env:VELOPACK_VERSION download github `
+              --repoUrl "https://github.com/${{ github.repository }}" `
+              --outputDir Releases `
+              --token "${{ secrets.GITHUB_TOKEN }}"
+          } catch {
+            Write-Host "No existing release artifacts were found. Continuing with an initial release."
+          }
+
+      - name: Build Velopack package
+        run: >
+          dnx vpk --version ${{ env.VELOPACK_VERSION }} pack
+          --packId ${{ env.APP_ID }}
+          --packVersion ${{ env.APP_VERSION }}
+          --packDir publish
+          --mainExe ${{ env.APP_EXE }}
+          --packTitle "${{ env.APP_TITLE }}"
+          --packAuthors "KS-KO"
+          --outputDir Releases
+
+      - name: Publish GitHub release assets
+        run: >
+          dnx vpk --version ${{ env.VELOPACK_VERSION }} upload github
+          --repoUrl "https://github.com/${{ github.repository }}"
+          --outputDir Releases
+          --token "${{ secrets.GITHUB_TOKEN }}"
+          --publish
+          --releaseName "SimpleVPN ${{ env.APP_VERSION }}"
+          --tag "v${{ env.APP_VERSION }}"
