@@ -38,6 +38,9 @@ jobs:
       - name: Restore
         run: dotnet restore SimpleVPNApp/SimpleVPNApp.csproj
 
+      - name: Install Velopack CLI
+        run: dotnet tool install vpk --version ${{ env.VELOPACK_VERSION }} --tool-path .tools
+
       - name: Publish app
         run: >
           dotnet publish SimpleVPNApp/SimpleVPNApp.csproj
@@ -55,7 +58,7 @@ jobs:
         shell: pwsh
         run: |
           try {
-            dnx vpk --version $env:VELOPACK_VERSION download github `
+            .\.tools\vpk.exe download github `
               --repoUrl "https://github.com/${{ github.repository }}" `
               --outputDir Releases `
               --token "${{ secrets.GITHUB_TOKEN }}"
@@ -65,7 +68,7 @@ jobs:
 
       - name: Build Velopack package
         run: >
-          dnx vpk --version ${{ env.VELOPACK_VERSION }} pack
+          .\.tools\vpk.exe pack
           --packId ${{ env.APP_ID }}
           --packVersion ${{ env.APP_VERSION }}
           --packDir publish
@@ -76,7 +79,7 @@ jobs:
 
       - name: Publish GitHub release assets
         run: >
-          dnx vpk --version ${{ env.VELOPACK_VERSION }} upload github
+          .\.tools\vpk.exe upload github
           --repoUrl "https://github.com/${{ github.repository }}"
           --outputDir Releases
           --token "${{ secrets.GITHUB_TOKEN }}"
