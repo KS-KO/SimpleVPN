@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Application
+    x:Class="SimpleVPN.Mobile.App"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+    <Application.Resources>
+        <Color x:Key="PrimaryColor">#0F766E</Color>
+        <Color x:Key="SecondaryColor">#F59E0B</Color>
+        <Color x:Key="SurfaceColor">#F8FAFC</Color>
+        <Style TargetType="ContentPage">
+            <Setter Property="BackgroundColor" Value="{StaticResource SurfaceColor}" />
+        </Style>
+        <Style TargetType="Label">
+            <Setter Property="TextColor" Value="#0F172A" />
+        </Style>
+        <Style TargetType="Button">
+            <Setter Property="BackgroundColor" Value="{StaticResource PrimaryColor}" />
+            <Setter Property="TextColor" Value="White" />
+            <Setter Property="CornerRadius" Value="14" />
+            <Setter Property="Padding" Value="16,12" />
+        </Style>
+    </Application.Resources>
+</Application>

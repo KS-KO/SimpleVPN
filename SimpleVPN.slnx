@@ -5,4 +5,6 @@
   <Project Path="SimpleVPNApp/SimpleVPNApp.csproj">
     <Platform Project="x64" />
   </Project>
+  <Project Path="SimpleVPN.Core/SimpleVPN.Core.csproj" />
+  <Project Path="SimpleVPN.Mobile/SimpleVPN.Mobile.csproj" />
 </Solution>

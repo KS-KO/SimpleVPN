@@ -2,7 +2,6 @@ using System;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -10,7 +9,8 @@ using System.Windows.Threading;
 using Microsoft.Win32;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using SimpleVPNApp.Models;
+using SimpleVPN.Core.Models;
+using SimpleVPN.Core.Protocols;
 using SimpleVPNApp.Services;
 
 namespace SimpleVPNApp.ViewModels;
@@ -1099,39 +1099,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     private string BuildChinaModePayload()
     {
-        if (SelectedChinaModeProfile?.Key == "vless-reality")
-        {
-            var port = int.TryParse(VlessRealityPort, out var parsedPort) ? parsedPort : 0;
-            var profile = new ChinaModeConnectionProfile
-            {
-                ProfileType = "vless-reality",
-                Server = VlessRealityServer,
-                Port = port,
-                Uuid = VlessRealityUuid,
-                PublicKey = VlessRealityPublicKey,
-                ShortId = VlessRealityShortId,
-                ServerName = VlessRealityServerName,
-                Fingerprint = VlessRealityFingerprint
-            };
-            return JsonSerializer.Serialize(profile);
-        }
-
-        if (SelectedChinaModeProfile?.Key == "trojan")
-        {
-            var port = int.TryParse(TrojanPort, out var parsedPort) ? parsedPort : 0;
-            var profile = new ChinaModeConnectionProfile
-            {
-                ProfileType = "trojan",
-                Server = TrojanServer,
-                Port = port,
-                Password = TrojanPassword,
-                ServerName = TrojanServerName,
-                Fingerprint = TrojanFingerprint
-            };
-            return JsonSerializer.Serialize(profile);
-        }
-
-        return ChinaModeAccessKey ?? string.Empty;
+        return ChinaModePayloadBuilder.BuildPayload(SelectedChinaModeProfile?.Key, CreateChinaModeSettings());
     }
 
     private void UpdateChinaModeHint()

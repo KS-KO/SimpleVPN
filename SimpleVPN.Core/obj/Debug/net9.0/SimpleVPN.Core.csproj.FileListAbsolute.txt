@@ -1,0 +1,12 @@
+F:\Project\SimpleVPN\SimpleVPN.Core\bin\Debug\net9.0\SimpleVPN.Core.deps.json
+F:\Project\SimpleVPN\SimpleVPN.Core\bin\Debug\net9.0\SimpleVPN.Core.dll
+F:\Project\SimpleVPN\SimpleVPN.Core\bin\Debug\net9.0\SimpleVPN.Core.pdb
+F:\Project\SimpleVPN\SimpleVPN.Core\obj\Debug\net9.0\SimpleVPN.Core.GeneratedMSBuildEditorConfig.editorconfig
+F:\Project\SimpleVPN\SimpleVPN.Core\obj\Debug\net9.0\SimpleVPN.Core.AssemblyInfoInputs.cache
+F:\Project\SimpleVPN\SimpleVPN.Core\obj\Debug\net9.0\SimpleVPN.Core.AssemblyInfo.cs
+F:\Project\SimpleVPN\SimpleVPN.Core\obj\Debug\net9.0\SimpleVPN.Core.csproj.CoreCompileInputs.cache
+F:\Project\SimpleVPN\SimpleVPN.Core\obj\Debug\net9.0\SimpleVPN.Core.sourcelink.json
+F:\Project\SimpleVPN\SimpleVPN.Core\obj\Debug\net9.0\SimpleVPN.Core.dll
+F:\Project\SimpleVPN\SimpleVPN.Core\obj\Debug\net9.0\refint\SimpleVPN.Core.dll
+F:\Project\SimpleVPN\SimpleVPN.Core\obj\Debug\net9.0\SimpleVPN.Core.pdb
+F:\Project\SimpleVPN\SimpleVPN.Core\obj\Debug\net9.0\ref\SimpleVPN.Core.dll

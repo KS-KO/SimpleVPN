@@ -2,7 +2,7 @@ using System;
 using System.Diagnostics;
 using System.Linq;
 using System.Net.NetworkInformation;
-using SimpleVPNApp.Models;
+using SimpleVPN.Core.Models;
 
 namespace SimpleVPNApp.Helpers;
 

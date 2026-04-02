@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Net.Http;
 using System.Threading.Tasks;
-using SimpleVPNApp.Models;
+using SimpleVPN.Core.Models;
 
 namespace SimpleVPNApp.Services;
 

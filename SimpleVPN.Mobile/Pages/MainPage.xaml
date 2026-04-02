@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="SimpleVPN.Mobile.Pages.MainPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:viewModels="clr-namespace:SimpleVPN.Mobile.ViewModels"
+    x:DataType="viewModels:MainViewModel"
+    Title="SimpleVPN">
+    <ScrollView>
+        <VerticalStackLayout Padding="20" Spacing="18">
+            <Border BackgroundColor="#E2E8F0" StrokeThickness="0" StrokeShape="RoundRectangle 24">
+                <VerticalStackLayout Padding="20" Spacing="10">
+                    <Label FontAttributes="Bold" FontSize="28" Text="SimpleVPN Mobile" />
+                    <Label FontSize="15" Opacity="0.7" Text="Android와 iOS용 공용 앱 셸입니다. 현재는 모바일 VPN 플랫폼 계층 연결 전 단계까지 준비되어 있습니다." />
+                    <Label FontAttributes="Bold" FontSize="16" Text="{Binding StatusMessage}" />
+                    <Button Command="{Binding ToggleConnectionCommand}" Text="{Binding ConnectButtonText}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Label FontAttributes="Bold" FontSize="20" Text="Connection Modes" />
+            <CollectionView ItemsSource="{Binding ConnectionOptions}" SelectionMode="Single" SelectedItem="{Binding SelectedConnectionOption}">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="viewModels:ConnectionOptionItemViewModel">
+                        <Border Margin="0,0,0,10" Padding="16" BackgroundColor="White" Stroke="#CBD5E1" StrokeShape="RoundRectangle 18">
+                            <VerticalStackLayout Spacing="4">
+                                <Label FontAttributes="Bold" FontSize="18" Text="{Binding DisplayName}" />
+                                <Label FontSize="13" Opacity="0.75" Text="{Binding Description}" />
+                            </VerticalStackLayout>
+                        </Border>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+
+            <Label FontAttributes="Bold" FontSize="20" Text="Recommended Servers" />
+            <CollectionView ItemsSource="{Binding Servers}" SelectionMode="Single" SelectedItem="{Binding SelectedServer}">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="viewModels:ServerItemViewModel">
+                        <Border Margin="0,0,0,10" Padding="16" BackgroundColor="White" Stroke="#CBD5E1" StrokeShape="RoundRectangle 18">
+                            <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                                <Label Grid.Row="0" Grid.Column="0" FontAttributes="Bold" FontSize="17" Text="{Binding Title}" />
+                                <Label Grid.Row="0" Grid.Column="1" FontAttributes="Bold" Text="{Binding LatencyText}" TextColor="#0F766E" />
+                                <Label Grid.Row="1" Grid.ColumnSpan="2" FontSize="13" Opacity="0.7" Text="{Binding Subtitle}" />
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

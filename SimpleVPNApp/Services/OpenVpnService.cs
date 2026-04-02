@@ -4,8 +4,8 @@ using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using SimpleVPN.Core.Models;
 using SimpleVPNApp.Helpers;
-using SimpleVPNApp.Models;
 
 namespace SimpleVPNApp.Services;
 

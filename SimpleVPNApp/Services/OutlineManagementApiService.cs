@@ -5,7 +5,7 @@ using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
-using SimpleVPNApp.Models;
+using SimpleVPN.Core.Models;
 
 namespace SimpleVPNApp.Services;
 

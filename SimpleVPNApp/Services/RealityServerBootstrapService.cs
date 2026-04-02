@@ -2,7 +2,7 @@ using System;
 using System.Diagnostics;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using SimpleVPNApp.Models;
+using SimpleVPN.Core.Models;
 
 namespace SimpleVPNApp.Services;
 
