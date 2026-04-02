@@ -51,6 +51,7 @@ jobs:
           /p:InformationalVersion=${{ env.APP_VERSION }}
 
       - name: Warm previous releases
+        continue-on-error: true
         shell: pwsh
         run: |
           try {
