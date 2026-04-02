@@ -28,6 +28,22 @@ jobs:
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
+      - name: Cache NuGet packages
+        id: cache-nuget
+        uses: actions/cache@v4
+        with:
+          path: ~\.nuget\packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('SimpleVPNApp/SimpleVPNApp.csproj', 'SimpleVPNApp/global.json') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Cache Velopack CLI
+        id: cache-vpk
+        uses: actions/cache@v4
+        with:
+          path: .tools
+          key: ${{ runner.os }}-vpk-${{ env.VELOPACK_VERSION }}
+
       - name: Resolve version
         shell: pwsh
         run: |
@@ -39,6 +55,7 @@ jobs:
         run: dotnet restore SimpleVPNApp/SimpleVPNApp.csproj
 
       - name: Install Velopack CLI
+        if: steps.cache-vpk.outputs.cache-hit != 'true'
         run: dotnet tool install vpk --version ${{ env.VELOPACK_VERSION }} --tool-path .tools
 
       - name: Publish app
